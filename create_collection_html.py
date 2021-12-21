@@ -1,0 +1,154 @@
+import requests
+import xmltodict
+import json
+import time
+import datetime
+import pickle
+from tqdm import tqdm
+from string import Template
+import sys
+
+import pandas as pd
+pd.set_option('max_columns', 100)
+
+BGG_USERNAME = 'gabeschw'
+REFRESH_GAME_DATA = False
+
+def bgg_api_to_dict(endpoint, params):
+    r = requests.post('https://www.boardgamegeek.com/xmlapi2/{}'.format(endpoint), params=params)
+    if r.status_code == 202:
+        time.sleep(1)
+        return bgg_api_to_dict(endpoint, params)
+    return xmltodict.parse(r.content)
+
+def bgg_game_to_dict(game_id, params={}):
+    r = requests.post('https://www.boardgamegeek.com/xmlapi/game/{}'.format(game_id), params=params)
+    if r.status_code == 202:
+        time.sleep(1)
+        return bgg_game_to_dict(game_id, params)
+    return xmltodict.parse(r.content)
+
+# Download collection XML data
+collection_dict = bgg_api_to_dict('collection', {
+    'username': BGG_USERNAME,
+    'version': 1,
+    'excludesubtype': 'boardgameexpansion',
+    'stats': 1,
+    'own': 1,
+})
+last_update_date = collection_dict['items']['@pubdate'][5:16]
+collection = pd.json_normalize(collection_dict['items']['item'])
+#collection = collection[collection['status.@fortrade'] != '1']
+
+# Download individual game XML data from collection
+if REFRESH_GAME_DATA:
+    games_list = []
+    for game_id in tqdm(collection['@objectid'].to_list()):
+        game_data = bgg_game_to_dict(game_id, {'stats': '1'})
+        games_list.append(game_data)
+        time.sleep(2)
+    pickle.dump(games_list, open('games_list.pickle', 'wb'))
+else:
+    games_list = pickle.load(open('games_list.pickle', 'rb'))
+
+# Convert games to DataFrames and merge with collection data
+games      = pd.json_normalize([g['boardgames']['boardgame'] for g in games_list])
+collection = collection.merge(games.iloc[:], how='left', on='@objectid', suffixes=('', '_g'))
+
+# Remove (very) bad games:
+collection['stats.rating.average.@value'] = collection['stats.rating.average.@value'].astype(float)
+#collection = collection.loc[collection['stats.rating.average.@value'] >= 5.5, :]
+
+# Parse recommended number of players from poll data
+def parse_numplayers_poll(poll, threshold=0.60, label='Best'):
+    try:
+        np_poll = poll[0]
+    except TypeError:
+        return None
+    if int(np_poll['@totalvotes']) < 1 or np_poll['@name'] != 'suggested_numplayers':
+        return None
+    rec_np_list = []
+    for np_dict in np_poll['results']:
+        num_players = np_dict['@numplayers']
+        good_votes  = 0
+        total_votes = 0
+        for row in np_dict['result']:
+            votes = int(row['@numvotes'])
+            total_votes += votes
+            if row['@value'] in ('Best', 'Recommended'):
+                good_votes += votes
+        if total_votes > 0 and good_votes / total_votes >= threshold:
+            rec_np_list.append(num_players.replace('+', ''))
+    rec_np_list = list(str(n) for n in sorted((set(int(n) for n in rec_np_list))))
+    return '|' + '|'.join(rec_np_list) + '|'
+collection['recommended_player_count'] = collection.poll.apply(parse_numplayers_poll)
+
+# Add columns for different player counts to use in filtering below
+for np in [1, 2, 3, 4, 5, 6]:
+    collection['np_{}'.format(np)] = collection.recommended_player_count.str.contains('|{}|'.format(np), regex=False).fillna(False) 
+collection['np_7+'] = False
+for np in range(7, 21):
+    collection.loc[collection.recommended_player_count.str.contains('|{}|'.format(np), regex=False).fillna(False), 'np_7+'] = True
+
+# Create columns for HTML export
+collection['Name']       = collection['name.#text']
+collection['Time']       = collection['playingtime'].astype(int)
+collection['# Plays']    = collection['numplays']
+collection['Rating']     = collection['stats.rating.@value'].replace('N/A', ' ')
+collection['BGG Avg']    = collection['statistics.ratings.average'].astype(float).round(2)
+collection['BGG Rank']   = collection['statistics.ratings.ranks.rank.@value'].fillna(
+    collection['statistics.ratings.ranks.rank'][collection['statistics.ratings.ranks.rank'].notnull()].apply(lambda x: x[0]['@value'])
+).replace('Not Ranked', ' ')
+collection['Weight']     = collection['statistics.ratings.averageweight'].astype(float).round(1)
+collection['Year']       = collection['yearpublished']
+collection['Designer']   = collection['boardgamedesigner.#text'].fillna(
+    collection.boardgamedesigner[collection.boardgamedesigner.notnull()].apply(lambda d: d[0]['#text'] + ' +')
+).fillna(' ')
+collection[' ']          = collection['status.@fortrade'].apply(lambda x: '*' if x=='1' else ' ')
+
+collection['Players']    = collection.minplayers + '-' + collection.maxplayers
+collection.loc[collection.minplayers.astype(int) == collection.maxplayers.astype(int), 'Players'] = collection.minplayers 
+
+# Create main body for HTML export
+cols = [
+        'Name',
+        'Time',
+        'Weight',
+        'Players',
+        'Year',
+        'Designer',
+        'BGG Rank',
+        'BGG Avg',
+        'Rating',
+        '# Plays',
+        ' ',
+]
+
+html = ""
+for np in ['1', '2', '3', '4', '5', '6', '7+']:
+    df = collection[(collection['np_{}'.format(np)])][cols].fillna(0).sort_values(by=['Time', 'BGG Avg'], ascending=[True, False])
+    html += '<h2>{} Player{}</h2>\n'.format(np, '' if np == '1' else 's')
+    html += df.to_html(index=False)
+    html += '\n'
+
+html += '<p style="page-break-before: always"></p>'
+html += '<h2>Alphabetic List</h2>\n'
+html += collection[cols].fillna(0).sort_values('Name').to_html(index=False)
+html += '\n'
+
+html += '<p style="page-break-before: always"></p>'
+html += '<h2>By Designer</h2>\n'
+html += collection[cols].fillna(0).sort_values(['Designer', 'Year', 'Name']).to_html(index=False)
+html += '\n'
+
+# Export to HTML (and CSV)
+with open('collection_template.html', 'r') as f:
+    src = Template(f.read())
+with open('collection.html', 'w') as f:
+    f.write(src.substitute({
+        'html': html,
+        'last_update_date': last_update_date,
+        'bgg_username': BGG_USERNAME
+    }))
+
+collection.to_csv('collection.csv')
