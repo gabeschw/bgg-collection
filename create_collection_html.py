@@ -54,40 +54,39 @@ else:
 games      = pd.json_normalize([g['boardgames']['boardgame'] for g in games_list])
 collection = collection.merge(games.iloc[:], how='left', on='@objectid', suffixes=('', '_g'))
 
-# Remove (very) bad games:
-collection['stats.rating.average.@value'] = collection['stats.rating.average.@value'].astype(float)
-#collection = collection.loc[collection['stats.rating.average.@value'] >= 5.5, :]
-
 # Parse recommended number of players from poll data
-def parse_numplayers_poll(poll, threshold=0.60, label='Best'):
+def parse_numplayers_poll(poll, threshold=0.60):
     try:
         np_poll = poll[0]
     except TypeError:
         return None
+
     if int(np_poll['@totalvotes']) < 1 or np_poll['@name'] != 'suggested_numplayers':
         return None
-    rec_np_list = []
+
+    rec_np = ['_'] * 9
     for np_dict in np_poll['results']:
-        num_players = np_dict['@numplayers']
-        good_votes  = 0
-        total_votes = 0
-        for row in np_dict['result']:
-            votes = int(row['@numvotes'])
-            total_votes += votes
-            if row['@value'] in ('Best', 'Recommended'):
-                good_votes += votes
-        if total_votes > 0 and good_votes / total_votes >= threshold:
-            rec_np_list.append(num_players.replace('+', ''))
-    rec_np_list = list(str(n) for n in sorted((set(int(n) for n in rec_np_list))))
-    return '|' + '|'.join(rec_np_list) + '|'
+        num_players = int(np_dict['@numplayers'].replace('+', ''))
+        if num_players < 10:
+            good_votes  = 0
+            total_votes = 0
+            for row in np_dict['result']:
+                votes = int(row['@numvotes'])
+                total_votes += votes
+                if row['@value'] in ('Best', 'Recommended'):
+                    good_votes += votes
+            if total_votes > 0 and good_votes / total_votes >= threshold:
+                rec_np[num_players-1] = str(num_players)
+    
+    return ''.join(rec_np)
 collection['recommended_player_count'] = collection.poll.apply(parse_numplayers_poll)
 
 # Add columns for different player counts to use in filtering below
-for np in [1, 2, 3, 4, 5, 6]:
-    collection['np_{}'.format(np)] = collection.recommended_player_count.str.contains('|{}|'.format(np), regex=False).fillna(False) 
+for np in range(1, 7):
+    collection['np_{}'.format(np)] = collection.recommended_player_count.str.contains(str(np), regex=False).fillna(False) 
 collection['np_7+'] = False
-for np in range(7, 21):
-    collection.loc[collection.recommended_player_count.str.contains('|{}|'.format(np), regex=False).fillna(False), 'np_7+'] = True
+for np in range(7, 10):
+    collection.loc[collection.recommended_player_count.str.contains(str(np), regex=False).fillna(False), 'np_7+'] = True
 
 # Create columns for HTML export
 collection['Name']       = collection['name.#text']
@@ -101,12 +100,9 @@ collection['BGG Rank']   = collection['statistics.ratings.ranks.rank.@value'].fi
 collection['Weight']     = collection['statistics.ratings.averageweight'].astype(float).round(1)
 collection['Year']       = collection['yearpublished']
 collection['Designer']   = collection['boardgamedesigner.#text'].fillna(
-    collection.boardgamedesigner[collection.boardgamedesigner.notnull()].apply(lambda d: d[0]['#text'] + ' +')
-).fillna(' ')
+    collection.boardgamedesigner[collection['boardgamedesigner'].notnull()].apply(lambda d: d[0]['#text'] + ' +')).fillna(' ')
 collection[' ']          = collection['status.@fortrade'].apply(lambda x: '*' if x=='1' else ' ')
-
-collection['Players']    = collection.minplayers + '-' + collection.maxplayers
-collection.loc[collection.minplayers.astype(int) == collection.maxplayers.astype(int), 'Players'] = collection.minplayers 
+collection['Players'] = collection['recommended_player_count']
 
 # Create main body for HTML export
 cols = [
