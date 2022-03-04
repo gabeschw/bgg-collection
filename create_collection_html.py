@@ -139,11 +139,11 @@ html += '\n'
 # Export to HTML (and CSV)
 with open('collection_template.html', 'r') as f:
     src = Template(f.read())
-with open('collection.html', 'w') as f:
+with open('collection_{}.html'.format(BGG_USERNAME), 'w') as f:
     f.write(src.substitute({
         'html': html,
         'last_update_date': last_update_date,
         'bgg_username': BGG_USERNAME
     }))
 
-collection.to_csv('collection.csv')
+collection.to_csv('collection_{}.csv'.format(BGG_USERNAME))
