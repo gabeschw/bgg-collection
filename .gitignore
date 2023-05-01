@@ -2,6 +2,7 @@ games_list.pickle
 *.csv
 collection.html
 envs/
+output/
 
 # project-local contains your personal configuration choices and state
 /anaconda-project-local.yml
