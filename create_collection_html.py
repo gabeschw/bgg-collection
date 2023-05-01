@@ -11,7 +11,7 @@ import pandas as pd
 pd.set_option('max_columns', 100)
 
 BGG_USERNAME = 'gabeschw'
-REFRESH_GAME_DATA = False
+REFRESH_GAME_DATA = True
 
 def bgg_api_to_dict(endpoint, params):
     r = requests.post('https://www.boardgamegeek.com/xmlapi2/{}'.format(endpoint), params=params)
@@ -108,8 +108,8 @@ collection['Players'] = collection['recommended_player_count']
 cols = [
         'Name',
         'Time',
-        'Weight',
         'Players',
+        'Weight',
         'Year',
         'Designer',
         'BGG Rank',
