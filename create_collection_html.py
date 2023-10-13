@@ -6,9 +6,7 @@ import datetime
 import pickle
 from tqdm import tqdm
 from string import Template
-
 import pandas as pd
-pd.set_option('max_columns', 100)
 
 BGG_USERNAME = 'gabeschw'
 REFRESH_GAME_DATA = True
