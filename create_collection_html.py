@@ -12,14 +12,14 @@ BGG_USERNAME = 'gabeschw'
 REFRESH_GAME_DATA = True
 
 def bgg_api_to_dict(endpoint, params):
-    r = requests.post('https://www.boardgamegeek.com/xmlapi2/{}'.format(endpoint), params=params)
+    r = requests.get('https://www.boardgamegeek.com/xmlapi2/{}'.format(endpoint), params=params)
     if r.status_code == 202:
-        time.sleep(1)
+        time.sleep(5)
         return bgg_api_to_dict(endpoint, params)
     return xmltodict.parse(r.content)
 
 def bgg_game_to_dict(game_id, params={}):
-    r = requests.post('https://www.boardgamegeek.com/xmlapi/game/{}'.format(game_id), params=params)
+    r = requests.get('https://www.boardgamegeek.com/xmlapi/game/{}'.format(game_id), params=params)
     if r.status_code == 202:
         time.sleep(1)
         return bgg_game_to_dict(game_id, params)
