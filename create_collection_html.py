@@ -12,6 +12,7 @@ pd.set_option('future.no_silent_downcasting', True)
 BGG_USERNAME = os.environ["BGG_USERNAME"]
 BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
 REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
+INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 BGG_BATCH_SIZE = 20
 
 def bgg_api_to_dict(endpoint, params, retries=5):
@@ -60,7 +61,8 @@ if __name__ == "__main__":
     })
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = pd.json_normalize(collection_dict['items']['item'])
-    #collection = collection[collection['status.@fortrade'] != '1']
+    if not INCLUDE_FOR_TRADE:
+        collection = collection[collection['status.@fortrade'] != '1']
 
     # Download individual game XML data from collection
     if REFRESH_GAME_DATA:
