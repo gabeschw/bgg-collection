@@ -4,7 +4,7 @@ import xmltodict
 import time
 import pickle
 from tqdm import tqdm
-from string import Template
+from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
 pd.set_option('future.no_silent_downcasting', True)
@@ -114,7 +114,6 @@ if __name__ == "__main__":
     collection['Players'] = recommended_players.apply(
         lambda nums: "".join(str(n) if n in nums else "_" for n in range(1, 10))
     )
-
     for np in range(1, 7):
         collection[f'np_{np}'] = recommended_players.apply(lambda nums, n=np: n in nums)
     collection['np_7+'] = recommended_players.apply(lambda nums: any(p >= 7 for p in nums))
@@ -149,31 +148,38 @@ if __name__ == "__main__":
             ' ',
     ]
 
-    html = ""
+    # Build sections for HTML export
+    sections = []
     for np in ['1', '2', '3', '4', '5', '6', '7+']:
-        df = collection[(collection['np_{}'.format(np)])][cols].fillna(0).sort_values(by=['Time', 'BGG Avg'], ascending=[True, False])
-        html += '<h2>{} Player{}</h2>\n'.format(np, '' if np == '1' else 's')
-        html += df.to_html(index=False)
-        html += '\n'
+        df = collection[collection[f'np_{np}']][cols].fillna(0).sort_values(
+            by=['Time', 'BGG Avg'], ascending=[True, False]
+        )
+        sections.append({
+            'title': f'{np} Player{"s" if np != "1" else ""}',
+            'table': df.to_html(index=False),
+        })
 
-    html += '<p style="page-break-before: always"></p>'
-    html += '<h2>Alphabetic List</h2>\n'
-    html += collection[cols].fillna(0).sort_values('Name').to_html(index=False)
-    html += '\n'
+    sections.append({
+        'title': 'Alphabetic List',
+        'page_break': True,
+        'table': collection[cols].fillna(0).sort_values('Name').to_html(index=False),
+    })
 
-    html += '<p style="page-break-before: always"></p>'
-    html += '<h2>By Designer</h2>\n'
-    html += collection[cols].fillna(0).sort_values(['Designer', 'Year', 'Name']).to_html(index=False)
-    html += '\n'
+    sections.append({
+        'title': 'By Designer',
+        'page_break': True,
+        'table': collection[cols].fillna(0).sort_values(['Designer', 'Year', 'Name']).to_html(index=False),
+    })
 
-    # Export to HTML (and CSV)
-    with open('collection_template.html', 'r') as f:
-        src = Template(f.read())
-    with open('output/collection_{}.html'.format(BGG_USERNAME), 'w') as f:
-        f.write(src.substitute({
-            'html': html,
-            'last_update_date': last_update_date,
-            'bgg_username': BGG_USERNAME
-        }))
+    # Render and export HTML
+    env = Environment(loader=FileSystemLoader("."))
+    template = env.get_template("collection_template.html")
+    rendered = template.render(
+        bgg_username=BGG_USERNAME,
+        last_update_date=last_update_date,
+        sections=sections,
+    )
+    with open(f'output/collection_{BGG_USERNAME}.html', 'w') as f:
+        f.write(rendered)
 
     collection.to_csv('output/collection_{}.csv'.format(BGG_USERNAME))
