@@ -20,4 +20,5 @@ uv run python create_collection_html.py
 | BGG Avg | Community rating on BGG (1–10) |
 | Rating | Your personal rating (1–10) |
 | # Plays | Number of times played |
-| `*` | Game is marked "for trade" |
+
+![Powered by BGG](bgg.png)
