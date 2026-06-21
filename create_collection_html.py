@@ -50,6 +50,29 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
         return xmltodict.parse(r.content)
     raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
 
+def parse_numplayers_poll(poll, threshold=0.60):
+    try:
+        np_poll = poll[0]
+    except TypeError:
+        return []
+
+    if int(np_poll['@totalvotes']) < 1 or np_poll['@name'] != 'suggested_numplayers':
+        return []
+
+    recommended = []
+    for np_dict in np_poll['results']:
+        num_players = int(np_dict['@numplayers'].replace('+', ''))
+        good_votes  = 0
+        total_votes = 0
+        for row in np_dict['result']:
+            votes = int(row['@numvotes'])
+            total_votes += votes
+            if row['@value'] in ('Best', 'Recommended'):
+                good_votes += votes
+        if total_votes > 0 and good_votes / total_votes >= threshold:
+            recommended.append(num_players)
+    return recommended
+
 if __name__ == "__main__":
     # Download collection XML data
     collection_dict = bgg_api_to_dict('collection', {
@@ -87,38 +110,14 @@ if __name__ == "__main__":
     collection = collection.merge(games, how='left', on='@objectid', suffixes=('', '_g'))
 
     # Parse recommended number of players from poll data
-    def parse_numplayers_poll(poll, threshold=0.60):
-        try:
-            np_poll = poll[0]
-        except TypeError:
-            return None
+    recommended_players = collection.poll.apply(parse_numplayers_poll)
+    collection['Players'] = recommended_players.apply(
+        lambda nums: "".join(str(n) if n in nums else "_" for n in range(1, 10))
+    )
 
-        if int(np_poll['@totalvotes']) < 1 or np_poll['@name'] != 'suggested_numplayers':
-            return None
-
-        rec_np = ['_'] * 9
-        for np_dict in np_poll['results']:
-            num_players = int(np_dict['@numplayers'].replace('+', ''))
-            if num_players < 10:
-                good_votes  = 0
-                total_votes = 0
-                for row in np_dict['result']:
-                    votes = int(row['@numvotes'])
-                    total_votes += votes
-                    if row['@value'] in ('Best', 'Recommended'):
-                        good_votes += votes
-                if total_votes > 0 and good_votes / total_votes >= threshold:
-                    rec_np[num_players-1] = str(num_players)
-        
-        return ''.join(rec_np)
-    collection['recommended_player_count'] = collection.poll.apply(parse_numplayers_poll)
-
-    # Add columns for different player counts to use in filtering below
     for np in range(1, 7):
-        collection['np_{}'.format(np)] = collection.recommended_player_count.str.contains(str(np), regex=False).fillna(False) 
-    collection['np_7+'] = False
-    for np in range(7, 10):
-        collection.loc[collection.recommended_player_count.str.contains(str(np), regex=False).fillna(False), 'np_7+'] = True
+        collection[f'np_{np}'] = recommended_players.apply(lambda nums, n=np: n in nums)
+    collection['np_7+'] = recommended_players.apply(lambda nums: any(p >= 7 for p in nums))
 
     # Create columns for HTML export
     collection['Name']       = collection['name.#text']
@@ -134,7 +133,6 @@ if __name__ == "__main__":
     collection['Designer']   = collection['boardgamedesigner.#text'].fillna(
         collection.boardgamedesigner[collection['boardgamedesigner'].notnull()].apply(lambda d: d[0]['#text'] + ' +')).fillna(' ')
     collection[' ']          = collection['status.@fortrade'].apply(lambda x: '*' if x=='1' else ' ')
-    collection['Players'] = collection['recommended_player_count']
 
     # Create main body for HTML export
     cols = [
