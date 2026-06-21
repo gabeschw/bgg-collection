@@ -7,6 +7,8 @@ from tqdm import tqdm
 from string import Template
 import pandas as pd
 
+pd.set_option('future.no_silent_downcasting', True)
+
 BGG_USERNAME = os.environ["BGG_USERNAME"]
 BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
 REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
