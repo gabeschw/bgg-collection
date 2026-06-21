@@ -6,6 +6,7 @@
 *.xml
 envs/
 output/
+docs/
 
 # project-local contains your personal configuration choices and state
 /anaconda-project-local.yml
