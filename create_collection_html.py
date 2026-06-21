@@ -10,6 +10,7 @@ import pandas as pd
 BGG_USERNAME = os.environ["BGG_USERNAME"]
 BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
 REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
+BGG_BATCH_SIZE = 20
 
 def bgg_api_to_dict(endpoint, params):
     r = requests.get(
@@ -25,9 +26,11 @@ def bgg_api_to_dict(endpoint, params):
         return bgg_api_to_dict(endpoint, params)
     return xmltodict.parse(r.content)
 
-def bgg_game_to_dict(game_id, params={}):
+def bgg_game_to_dict(game_ids, params={}):
+    if isinstance(game_ids, list):
+        game_ids = ",".join(str(i) for i in game_ids)
     r = requests.get(
-        "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_id),
+        "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
         params=params,
         headers={
              "Authorization": f"Bearer {BGG_API_TOKEN}"
@@ -35,7 +38,7 @@ def bgg_game_to_dict(game_id, params={}):
     )
     if r.status_code == 202:
         time.sleep(1)
-        return bgg_game_to_dict(game_id, params)
+        return bgg_game_to_dict(game_ids, params)
     return xmltodict.parse(r.content)
 
 # Download collection XML data
@@ -53,17 +56,21 @@ collection = pd.json_normalize(collection_dict['items']['item'])
 # Download individual game XML data from collection
 if REFRESH_GAME_DATA:
     games_list = []
-    for game_id in tqdm(collection['@objectid'].to_list()):
-        game_data = bgg_game_to_dict(game_id, {'stats': '1'})
-        
-        games_list.append(game_data)
+    game_ids = collection['@objectid'].to_list()
+    for i in tqdm(range(0, len(game_ids), BGG_BATCH_SIZE)):
+        batch = game_ids[i:i + BGG_BATCH_SIZE]
+        response = bgg_game_to_dict(batch, {'stats': '1'})
+        batch_games = response['boardgames']['boardgame']
+        if not isinstance(batch_games, list):
+            batch_games = [batch_games]
+        games_list.extend(batch_games)
         time.sleep(2)
     pickle.dump(games_list, open('games_list.pickle', 'wb'))
 else:
     games_list = pickle.load(open('games_list.pickle', 'rb'))
 
 # Convert games to DataFrames and merge with collection data
-games      = pd.json_normalize([g['boardgames']['boardgame'] for g in games_list])
+games      = pd.json_normalize(games_list)
 collection = collection.merge(games.iloc[:], how='left', on='@objectid', suffixes=('', '_g'))
 
 # Parse recommended number of players from poll data
