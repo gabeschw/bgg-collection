@@ -1,7 +1,7 @@
 [project]
 name = "bgg-collection"
 version = "0.1.0"
-description = "Add your description here"
+description = "Download BGG collection and generate printable HTML report"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
