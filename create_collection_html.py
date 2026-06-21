@@ -84,8 +84,8 @@ if __name__ == "__main__":
     })
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = pd.json_normalize(collection_dict['items']['item'])
-    if not INCLUDE_FOR_TRADE:
-        collection = collection[collection['status.@fortrade'] != '1']
+    if INCLUDE_FOR_TRADE:
+        collection = collection[collection['status.@fortrade'] == '1']
 
     # Download individual game XML data from collection
     if REFRESH_GAME_DATA:
