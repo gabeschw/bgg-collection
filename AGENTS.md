@@ -18,7 +18,7 @@ No tests, lint, or CI.
 - **Single script**: `create_collection_html.py` runs the full pipeline (download → merge → HTML/CSV output).
 - **Output**: `output/collection_{username}.html` and `.csv` (gitignored).
 - **Caching**: `games_list.pickle` caches enriched game data; delete it or set `REFRESH_GAME_DATA=true` to re-download.
-- **Template**: `collection_template.html` uses `string.Template` (`$bgg_username`, `$last_update_date`, `$html`).
+- **Template**: `collection_template.html` uses Jinja2 (`{{ bgg_username }}`, `{% for section in sections %}`, `{{ section.table | safe }}`). Sections are built in Python as a list of `{title, table, page_break?}` dicts and passed to `template.render()`.
 
 ## Gotchas
 
