@@ -72,9 +72,11 @@ if REFRESH_GAME_DATA:
             batch_games = [batch_games]
         games_list.extend(batch_games)
         time.sleep(2)
-    pickle.dump(games_list, open('games_list.pickle', 'wb'))
+    with open('games_list.pickle', 'wb') as f:
+        pickle.dump(games_list, f)
 else:
-    games_list = pickle.load(open('games_list.pickle', 'rb'))
+    with open('games_list.pickle', 'rb') as f:
+        games_list = pickle.load(f)
 
 # Convert games to DataFrames and merge with collection data
 games      = pd.json_normalize(games_list)
