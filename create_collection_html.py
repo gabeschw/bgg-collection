@@ -30,9 +30,10 @@ def bgg_api_to_dict(endpoint, params, retries=5):
         return xmltodict.parse(r.content)
     raise RuntimeError(f"BGG API returned 202 {retries} times for {endpoint}")
 
-def bgg_game_to_dict(game_ids, params={}, retries=5):
+def bgg_game_to_dict(game_ids, params=None, retries=5):
     if isinstance(game_ids, list):
         game_ids = ",".join(str(i) for i in game_ids)
+    params = params or {}
     for _ in range(retries):
         r = requests.get(
             "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
