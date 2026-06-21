@@ -22,7 +22,7 @@ def bgg_api_to_dict(endpoint, params):
             "Authorization": f"Bearer {BGG_API_TOKEN}"
         }
     )
-    print(r.status_code)
+    r.raise_for_status()
     if r.status_code == 202:
         time.sleep(5)
         return bgg_api_to_dict(endpoint, params)
@@ -38,6 +38,7 @@ def bgg_game_to_dict(game_ids, params={}):
              "Authorization": f"Bearer {BGG_API_TOKEN}"
         }
     )
+    r.raise_for_status()
     if r.status_code == 202:
         time.sleep(1)
         return bgg_game_to_dict(game_ids, params)
