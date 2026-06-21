@@ -1,6 +1,9 @@
-games_list.pickle
+.DS_Store
+.env
+*.pickle
 *.csv
-collection.html
+*.html
+*.xml
 envs/
 output/
 
@@ -15,3 +18,5 @@ __pycache__/
 
 # Notebook stuff
 .ipynb_checkpoints/
+notebooks/
+

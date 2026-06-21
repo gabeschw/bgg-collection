@@ -1,25 +1,38 @@
+import os
 import requests
 import xmltodict
-import json
 import time
-import datetime
 import pickle
 from tqdm import tqdm
 from string import Template
 import pandas as pd
 
-BGG_USERNAME = 'gabeschw'
-REFRESH_GAME_DATA = True
+BGG_USERNAME = os.environ["BGG_USERNAME"]
+BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
+REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
 
 def bgg_api_to_dict(endpoint, params):
-    r = requests.get('https://www.boardgamegeek.com/xmlapi2/{}'.format(endpoint), params=params)
+    r = requests.get(
+        "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
+        params=params,
+        headers={
+            "Authorization": f"Bearer {BGG_API_TOKEN}"
+        }
+    )
+    print(r.status_code)
     if r.status_code == 202:
         time.sleep(5)
         return bgg_api_to_dict(endpoint, params)
     return xmltodict.parse(r.content)
 
 def bgg_game_to_dict(game_id, params={}):
-    r = requests.get('https://www.boardgamegeek.com/xmlapi/game/{}'.format(game_id), params=params)
+    r = requests.get(
+        "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_id),
+        params=params,
+        headers={
+             "Authorization": f"Bearer {BGG_API_TOKEN}"
+        }
+    )
     if r.status_code == 202:
         time.sleep(1)
         return bgg_game_to_dict(game_id, params)
@@ -42,6 +55,7 @@ if REFRESH_GAME_DATA:
     games_list = []
     for game_id in tqdm(collection['@objectid'].to_list()):
         game_data = bgg_game_to_dict(game_id, {'stats': '1'})
+        
         games_list.append(game_data)
         time.sleep(2)
     pickle.dump(games_list, open('games_list.pickle', 'wb'))
