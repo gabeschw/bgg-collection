@@ -14,35 +14,39 @@ BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
 REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
 BGG_BATCH_SIZE = 20
 
-def bgg_api_to_dict(endpoint, params):
-    r = requests.get(
-        "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
-        params=params,
-        headers={
-            "Authorization": f"Bearer {BGG_API_TOKEN}"
-        }
-    )
-    r.raise_for_status()
-    if r.status_code == 202:
-        time.sleep(5)
-        return bgg_api_to_dict(endpoint, params)
-    return xmltodict.parse(r.content)
+def bgg_api_to_dict(endpoint, params, retries=5):
+    for _ in range(retries):
+        r = requests.get(
+            "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
+            params=params,
+            headers={
+                "Authorization": f"Bearer {BGG_API_TOKEN}"
+            }
+        )
+        r.raise_for_status()
+        if r.status_code == 202:
+            time.sleep(5)
+            continue
+        return xmltodict.parse(r.content)
+    raise RuntimeError(f"BGG API returned 202 {retries} times for {endpoint}")
 
-def bgg_game_to_dict(game_ids, params={}):
+def bgg_game_to_dict(game_ids, params={}, retries=5):
     if isinstance(game_ids, list):
         game_ids = ",".join(str(i) for i in game_ids)
-    r = requests.get(
-        "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
-        params=params,
-        headers={
-             "Authorization": f"Bearer {BGG_API_TOKEN}"
-        }
-    )
-    r.raise_for_status()
-    if r.status_code == 202:
-        time.sleep(1)
-        return bgg_game_to_dict(game_ids, params)
-    return xmltodict.parse(r.content)
+    for _ in range(retries):
+        r = requests.get(
+            "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
+            params=params,
+            headers={
+                 "Authorization": f"Bearer {BGG_API_TOKEN}"
+            }
+        )
+        r.raise_for_status()
+        if r.status_code == 202:
+            time.sleep(1)
+            continue
+        return xmltodict.parse(r.content)
+    raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
 
 # Download collection XML data
 collection_dict = bgg_api_to_dict('collection', {
