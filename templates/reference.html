@@ -12,7 +12,11 @@
         --bg: #ffffff;
         --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     }
-    * { box-sizing: border-box; }
+    * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;  /* print background colors + the translucent panel */
+    }
     body {
         margin: 0;
         background: #d9d9d6;
