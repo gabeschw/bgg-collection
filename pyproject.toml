@@ -6,9 +6,17 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
-    "jupyter>=1.1.1",
     "pandas>=2.2.3",
     "requests>=2.32.3",
     "tqdm>=4.67.1",
     "xmltodict>=0.14.2",
+]
+
+[project.optional-dependencies]
+# Only needed for the exploratory notebook under notebooks/, not the scripts.
+notebook = [
+    "jupyter>=1.1.1",
+    "polars>=1.42.1",
+    "pyarrow>=24.0.0",
+    "seaborn>=0.13.2",
 ]
