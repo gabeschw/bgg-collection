@@ -12,6 +12,13 @@ REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
 INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", "overrides.toml")
 
+# Personal-rating thresholds for the favorite medal, highest tier first.
+FAVORITE_TIERS = [
+    ('gold',   float(os.environ.get("FAVORITE_GOLD", 10))),
+    ('silver', float(os.environ.get("FAVORITE_SILVER", 9))),
+    ('bronze', float(os.environ.get("FAVORITE_BRONZE", 8))),
+]
+
 def _as_list(field):
     if field is None or isinstance(field, float):
         return []
@@ -109,6 +116,17 @@ def _recommended_players(game):
     # Comma-separated counts, e.g. "2, 3, 4"; blank when the poll recommends nothing.
     return ', '.join(str(n) for n in parse_numplayers_poll(game.get('poll')))
 
+def _medal(item):
+    """Favorite tier ('gold'/'silver'/'bronze') from the personal rating, else ''."""
+    try:
+        rating = float(item.get('stats', {}).get('rating', {}).get('@value'))
+    except (TypeError, ValueError):
+        return ''  # unrated ('N/A' or missing)
+    for tier, threshold in FAVORITE_TIERS:
+        if rating >= threshold:
+            return tier
+    return ''
+
 def build_card(game, item, overrides):
     # Identity fields (name, image, year, publisher) reflect the owned edition
     # via the collection item; the rest comes from the game's canonical data.
@@ -117,6 +135,7 @@ def build_card(game, item, overrides):
         'id':          game['@objectid'],
         'name':        display_name(game, item, overrides),
         'url':         f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
+        'medal':       _medal(item),
         'image':       item.get('image') or game.get('image') or game.get('thumbnail') or '',
         'players':     _players(game),
         'rec_players': _recommended_players(game),
