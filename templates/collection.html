@@ -24,14 +24,17 @@
         color: #3f3f3f;
     }
     table {
-        border-collapse: collapse;
-        margin: 5px 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 5px 0 18px;
         font-size: 0.7em;
         color: #3f3f3f;
         width: 800px;
-        border-width: 1px;
-        border-style: solid;
-        border-color: #e2e2e2;
+        background: #f2f2f0;
+        border-right: 1px solid #cfcfca;
+        border-bottom: 1px solid #cfcfca;
+        border-radius: 5px;
+        overflow: hidden;
     }
     table thead tr {
         background-color: #3f3f3f;
@@ -61,8 +64,8 @@
     table tbody tr {
         border-width: 0;
     }
-    table tbody tr:nth-of-type(even) {
-        background-color: #f5f5f3;
+    table tbody tr:nth-of-type(odd) {
+        background-color: #fdfdfc;
     }
     </style>
     <meta charset="UTF-8">
