@@ -43,8 +43,10 @@ if __name__ == "__main__":
         lambda oid: display_name(games_by_id.get(oid, {}), items_by_id.get(oid, {}), overrides))
     collection['Time']       = collection['playingtime'].astype(int)
     collection['# Plays']    = collection['numplays']
-    collection['Rating']     = collection['stats.rating.@value'].replace('N/A', ' ')
-    collection['BGG Avg']    = collection['statistics.ratings.average'].astype(float).round(2)
+    # Fixed decimals so the right-aligned columns line up on the decimal point.
+    collection['Rating']     = collection['stats.rating.@value'].apply(
+        lambda v: f'{float(v):.1f}' if str(v).replace('.', '', 1).isdigit() else ' ')
+    collection['BGG Avg']    = collection['statistics.ratings.average'].astype(float).map('{:.2f}'.format)
     collection['BGG Rank']   = collection['statistics.ratings.ranks.rank.@value'].fillna(
         collection['statistics.ratings.ranks.rank'][collection['statistics.ratings.ranks.rank'].notnull()].apply(lambda x: x[0]['@value'])
     ).replace('Not Ranked', ' ')
@@ -98,6 +100,7 @@ if __name__ == "__main__":
     rendered = template.render(
         bgg_username=BGG_USERNAME,
         last_update_date=last_update_date,
+        game_count=len(collection),
         sections=sections,
     )
     with open(f'output/collection_{BGG_USERNAME}.html', 'w') as f:

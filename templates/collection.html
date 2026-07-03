@@ -5,30 +5,36 @@
     <style>
     body {
         margin-left: 50px;
-        font-family: 'Geneva', sans-serif;
+        font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     }
     h1 {
-        text-align: right;
-        font-size: 0.9em;
+        text-align: center;
+        color: #6d6d6d;
+        font-size: 0.85em;
         font-weight: normal;
+        margin: 0 0 10px;
     }
     h2 {
-        margin: 25px 0px 0px 0px;
-        font-size: 1.1em;
-        color: #2b3e41;
+        margin: 25px 0 0 0;
+        font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+        font-size: 1.35em;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #3f3f3f;
     }
     table {
         border-collapse: collapse;
         margin: 5px 0;
         font-size: 0.7em;
-        color: #000000;
+        color: #3f3f3f;
         width: 800px;
         border-width: 1px;
         border-style: solid;
-        border-color: #d8e3e5;
+        border-color: #e2e2e2;
     }
     table thead tr {
-        background-color: #83a0a0;
+        background-color: #3f3f3f;
         color: #ffffff;
     }
     table th,
@@ -36,13 +42,27 @@
         padding: 3px;
         border-width: 0;
         text-align: left;
-        font-weight: normal;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    /* Right-align numeric columns. Positions track the `cols` order in
+       build_collection.py: 2 Time, 4 Weight, 5 Year, 7 BGG Rank, 8 BGG Avg,
+       9 Rating, 10 # Plays. */
+    table th:nth-child(2),  table td:nth-child(2),
+    table th:nth-child(4),  table td:nth-child(4),
+    table th:nth-child(5),  table td:nth-child(5),
+    table th:nth-child(7),  table td:nth-child(7),
+    table th:nth-child(8),  table td:nth-child(8),
+    table th:nth-child(9),  table td:nth-child(9),
+    table th:nth-child(10), table td:nth-child(10) {
+        text-align: right;
+        padding-right: 8px;
     }
     table tbody tr {
         border-width: 0;
     }
     table tbody tr:nth-of-type(even) {
-        background-color: #eff3f3;
+        background-color: #f5f5f3;
     }
     </style>
     <meta charset="UTF-8">
@@ -52,7 +72,7 @@
 </head>
 <body>
 
-    <h1><strong>{{ bgg_username }} / </strong>Last Update: {{ last_update_date }}</h1>
+    <h1>{{ bgg_username }} &middot; {{ game_count }} games &middot; last updated {{ last_update_date }}</h1>
 
     {% for section in sections %}
         {% if section.page_break %}
