@@ -189,7 +189,7 @@
                 <div class="card-body">
                     <a class="title" href="{{ c.url }}">{{ c.name }}</a>
                     <div class="meta">
-                        {% set published = [c.published, c.publisher] | select | join(' | ') %}
+                        {% set published = [c.published, c.publisher] | select | join(' · ') %}
                         {% if published %}<div class="row" title="Published / publisher">
                             <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
                             <span class="val">{{ published }}</span>

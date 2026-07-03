@@ -6,13 +6,23 @@
 # Each [overrides."<id>"] table may set any card field. Today only `name` is
 # used; the structure leaves room for more later (e.g. description = "...").
 #
-# Use this mainly for names too long to fit on one card line where no automatic
-# rule applies — colon subtitles in particular need a human call on whether to
-# keep the part before or after the colon. Trailing "(...)" parentheticals are
-# handled automatically and usually do not need an entry here.
+# The card name defaults to the owned edition's name (from the collection item);
+# use an override to force a different one — e.g. a name too long to fit on one
+# card line (colon subtitles need a human call on which half to keep), or to
+# restore the canonical English name over a localized edition.
 
 [overrides."130176"]  # Tales & Games: The Hare & the Tortoise
 name = "The Hare & the Tortoise"
+
+# Restore the canonical name over the owned localized edition:
+[overrides."42"]      # owned edition: Euphrat & Tigris
+name = "Tigris & Euphrates"
+
+[overrides."277597"]  # owned edition: Luiaard
+name = "Fast Sloths"
+
+[overrides."354"]     # owned edition: Sticheln
+name = "Stick 'Em"
 
 [overrides."258210"]  # Blitzkrieg!: World War Two in 20 Minutes
 name = "Blitzkrieg!"
