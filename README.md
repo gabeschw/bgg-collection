@@ -13,9 +13,11 @@ Copy `.env.example` to `.env` and fill in your BGG username and API token, then 
 uv sync
 ```
 
+Both scripts pull the same data from BGG and cache it to `cache/<username>.json`. Set `REFRESH_DATA=false` to render from that cache without hitting the API (no token or network needed); leave it `true` to re-pull.
+
 ## Collection report
 
-`build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV). It also caches the raw game data to `games_list.pickle`, which the reference guide reuses.
+`build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV), caching the raw collection + game data to `cache/<username>.json`.
 
 ```bash
 uv run python build_collection.py
@@ -42,7 +44,7 @@ uv run python build_collection.py
 uv run python build_reference.py
 ```
 
-It reads `games_list.pickle` (written by `build_collection.py`), so **run the collection report first**. When printing to PDF, enable "Background graphics" so the colored elements render.
+It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `REFRESH_DATA=true` populates the cache. When printing to PDF, enable "Background graphics" so the colored elements render.
 
 ### Name overrides
 

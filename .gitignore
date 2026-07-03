@@ -3,6 +3,7 @@
 *.pickle
 *.csv
 *.xml
+cache/
 envs/
 output/
 ref/
@@ -19,4 +20,3 @@ __pycache__/
 # Notebook stuff
 .ipynb_checkpoints/
 notebooks/
-

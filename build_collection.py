@@ -1,88 +1,24 @@
 import os
-import requests
-import xmltodict
-import time
-import pickle
-from tqdm import tqdm
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
-from common import parse_numplayers_poll, recommended_players_string
+from common import load_data, parse_numplayers_poll, recommended_players_string
 
 pd.set_option('future.no_silent_downcasting', True)
 
 BGG_USERNAME = os.environ["BGG_USERNAME"]
-BGG_API_TOKEN = os.environ["BGG_API_TOKEN"]
-REFRESH_GAME_DATA = os.environ.get("REFRESH_GAME_DATA", "true").lower() == "true"
+REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
 INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
-BGG_BATCH_SIZE = 20
-
-def bgg_api_to_dict(endpoint, params, retries=5):
-    for _ in range(retries):
-        r = requests.get(
-            "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
-            params=params,
-            headers={
-                "Authorization": f"Bearer {BGG_API_TOKEN}"
-            }
-        )
-        r.raise_for_status()
-        if r.status_code == 202:
-            time.sleep(5)
-            continue
-        return xmltodict.parse(r.content)
-    raise RuntimeError(f"BGG API returned 202 {retries} times for {endpoint}")
-
-def bgg_game_to_dict(game_ids, params=None, retries=5):
-    if isinstance(game_ids, list):
-        game_ids = ",".join(str(i) for i in game_ids)
-    params = params or {}
-    for _ in range(retries):
-        r = requests.get(
-            "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
-            params=params,
-            headers={
-                 "Authorization": f"Bearer {BGG_API_TOKEN}"
-            }
-        )
-        r.raise_for_status()
-        if r.status_code == 202:
-            time.sleep(1)
-            continue
-        return xmltodict.parse(r.content)
-    raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
 
 if __name__ == "__main__":
-    # Download collection XML data
-    collection_dict = bgg_api_to_dict('collection', {
-        'username': BGG_USERNAME,
-        'version': 1,
-        'excludesubtype': 'boardgameexpansion',
-        'stats': 1,
-        'own': 1,
-    })
+    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA, include_for_trade=INCLUDE_FOR_TRADE)
+    collection_dict = data['collection']
+    games_list = data['games']
+
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = pd.json_normalize(collection_dict['items']['item'])
     if INCLUDE_FOR_TRADE:
         collection = collection[collection['status.@fortrade'] == '1']
-
-    # Download individual game XML data from collection
-    if REFRESH_GAME_DATA:
-        games_list = []
-        game_ids = collection['@objectid'].to_list()
-        for i in tqdm(range(0, len(game_ids), BGG_BATCH_SIZE)):
-            batch = game_ids[i:i + BGG_BATCH_SIZE]
-            response = bgg_game_to_dict(batch, {'stats': '1'})
-            batch_games = response['boardgames']['boardgame']
-            if not isinstance(batch_games, list):
-                batch_games = [batch_games]
-            games_list.extend(batch_games)
-            time.sleep(2)
-        with open('games_list.pickle', 'wb') as f:
-            pickle.dump(games_list, f)
-    else:
-        with open('games_list.pickle', 'rb') as f:
-            games_list = pickle.load(f)
 
     # Convert games to DataFrames and merge with collection data
     games      = pd.json_normalize(games_list)

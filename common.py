@@ -1,3 +1,103 @@
+"""Shared BoardGameGeek layer: fetch + cache the data, and parse it.
+
+Both build scripts call load_data(), so either can populate the shared per-user
+cache under cache/. When the cache is present and REFRESH_DATA is off, rendering
+runs entirely from it — no API token or network needed.
+
+The cache holds the raw API responses:
+    {"collection": <collection response>, "games": [<boardgame dicts>]}
+"""
+import os
+import json
+import time
+import requests
+import xmltodict
+from tqdm import tqdm
+
+CACHE_DIR = "cache"
+BGG_BATCH_SIZE = 20  # BGG's maximum per boardgame request
+
+def _headers():
+    # Read the token lazily so cache-only reads need no credentials.
+    return {"Authorization": f"Bearer {os.environ['BGG_API_TOKEN']}"}
+
+def bgg_api_to_dict(endpoint, params, retries=5):
+    for _ in range(retries):
+        r = requests.get(
+            "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
+            params=params,
+            headers=_headers(),
+        )
+        r.raise_for_status()
+        if r.status_code == 202:
+            time.sleep(5)
+            continue
+        return xmltodict.parse(r.content)
+    raise RuntimeError(f"BGG API returned 202 {retries} times for {endpoint}")
+
+def bgg_game_to_dict(game_ids, params=None, retries=5):
+    if isinstance(game_ids, list):
+        game_ids = ",".join(str(i) for i in game_ids)
+    params = params or {}
+    for _ in range(retries):
+        r = requests.get(
+            "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
+            params=params,
+            headers=_headers(),
+        )
+        r.raise_for_status()
+        if r.status_code == 202:
+            time.sleep(1)
+            continue
+        return xmltodict.parse(r.content)
+    raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
+
+def cache_path(username):
+    return os.path.join(CACHE_DIR, f"{username}.json")
+
+def _fetch(username, include_for_trade):
+    collection = bgg_api_to_dict('collection', {
+        'username': username,
+        'version': 1,
+        'excludesubtype': 'boardgameexpansion',
+        'stats': 1,
+        'own': 1,
+    })
+    items = collection['items']['item']
+    if not isinstance(items, list):
+        items = [items]
+    if include_for_trade:
+        items = [i for i in items if i.get('status', {}).get('@fortrade') == '1']
+    game_ids = [i['@objectid'] for i in items]
+
+    games = []
+    for i in tqdm(range(0, len(game_ids), BGG_BATCH_SIZE)):
+        batch = game_ids[i:i + BGG_BATCH_SIZE]
+        response = bgg_game_to_dict(batch, {'stats': '1'})
+        batch_games = response['boardgames']['boardgame']
+        if not isinstance(batch_games, list):
+            batch_games = [batch_games]
+        games.extend(batch_games)
+        time.sleep(2)
+
+    return {'collection': collection, 'games': games}
+
+def load_data(username, refresh, include_for_trade=False):
+    """Return the collection + games data, fetching from BGG when needed.
+
+    Fetches (and rewrites the cache) when `refresh` is set or no cache exists;
+    otherwise reads the cache. Fetching requires BGG_API_TOKEN.
+    """
+    path = cache_path(username)
+    if refresh or not os.path.exists(path):
+        data = _fetch(username, include_for_trade)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(data, f)
+        return data
+    with open(path) as f:
+        return json.load(f)
+
 def parse_numplayers_poll(poll, threshold=0.60):
     """Return the player counts the BGG community rates Best/Recommended.
 

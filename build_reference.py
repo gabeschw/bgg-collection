@@ -1,15 +1,15 @@
 import os
 import re
 import html
-import pickle
 import tomllib
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from common import parse_numplayers_poll
+from common import load_data, cache_path, parse_numplayers_poll
 
 BGG_USERNAME = os.environ["BGG_USERNAME"]
-GAMES_PICKLE = os.environ.get("GAMES_PICKLE", "games_list.pickle")
+REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
+INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", "overrides.toml")
 
 def _as_list(field):
@@ -104,10 +104,10 @@ def build_card(game, overrides):
     }
 
 if __name__ == "__main__":
-    with open(GAMES_PICKLE, 'rb') as f:
-        games_list = pickle.load(f)
+    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA, include_for_trade=INCLUDE_FOR_TRADE)
+    games_list = data['games']
 
-    data_date = datetime.fromtimestamp(os.path.getmtime(GAMES_PICKLE)).strftime('%b %d %Y')
+    data_date = datetime.fromtimestamp(os.path.getmtime(cache_path(BGG_USERNAME))).strftime('%b %d %Y')
 
     overrides = load_overrides()
     cards = [build_card(g, overrides) for g in games_list]

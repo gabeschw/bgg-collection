@@ -7,8 +7,8 @@ Downloads a BGG user's board game collection via the BoardGameGeek XML API, enri
 ## Commands
 
 ```bash
-uv run python build_collection.py    # download + collection report (run this first)
-uv run python build_reference.py     # reference guide (reads games_list.pickle)
+uv run python build_collection.py    # collection report (fetches if needed)
+uv run python build_reference.py     # reference guide (fetches if needed)
 uv sync                              # install dependencies (add --extra notebook for the notebook)
 ```
 
@@ -16,18 +16,17 @@ No tests, lint, or CI.
 
 ## Architecture
 
-- **`build_collection.py`**: full pipeline (download → merge → HTML/CSV output). Caches raw game data to `games_list.pickle`.
-- **`build_reference.py`**: reads `games_list.pickle` (so `build_collection.py` must run first) and renders one card per game. `overrides.toml` supplies per-game display-name overrides keyed by BGG object id.
-- **`common.py`**: shared BGG parsing (recommended-players poll logic) used by both scripts.
+- **`common.py`**: shared data + parsing layer. `load_data(username, refresh, include_for_trade)` fetches the collection + games from BGG and caches them, or reads the cache; also holds the recommended-players poll parsing. The API token is read lazily, so cache-only reads need no credentials.
+- **`build_collection.py`**: calls `load_data`, then merges/derives columns with pandas and renders the collection HTML + CSV.
+- **`build_reference.py`**: calls `load_data`, then renders one card per game. `overrides.toml` supplies per-game display-name overrides keyed by BGG object id.
+- **Data cache**: `cache/<username>.json` holds the raw API responses `{"collection": ..., "games": [...]}`. Either script populates it; `REFRESH_DATA=true` (or a missing cache) triggers a fetch, otherwise both render from the cache offline.
 - **Templates**: `templates/collection.html` and `templates/reference.html`, both Jinja2 (`build_reference.py` renders with `autoescape`; `build_collection.py` passes pre-rendered tables via `{{ ... | safe }}`).
 - **Output**: `output/collection_{username}.html`/`.csv` and `output/reference_{username}.html` (all gitignored).
-- **Caching**: `games_list.pickle` caches enriched game data; delete it or set `REFRESH_GAME_DATA=true` to re-download.
 
 ## Gotchas
 
 - **Package manager**: `uv`. Lockfile is `uv.lock`. Do not use pip/conda.
 - **Python version**: 3.12 (`.python-version`).
-- **Env vars**: `BGG_USERNAME` and `BGG_API_TOKEN` are required (raises `KeyError` if missing). `REFRESH_GAME_DATA` defaults to `true`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically.
-- **Batching**: Per-game API calls are batched 20 per request (`BGG_BATCH_SIZE = 20`). Script sleeps 2s between batches. Setting is 20 because BGG enforces that maximum.
-- **Pickle format**: `games_list.pickle` stores flat game dicts (not wrapped response objects). Old pickle files from before the batching change are incompatible — delete and re-download.
-- **Notebooks**: `.ipynb` files are exploratory; the script is the authoritative pipeline.
+- **Env vars**: `BGG_USERNAME` is required; `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `REFRESH_DATA` defaults to `true`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically.
+- **Batching**: Per-game API calls are batched 20 per request (`BGG_BATCH_SIZE = 20` in `common.py`), sleeping 2s between batches. 20 is BGG's enforced maximum.
+- **Notebooks**: `.ipynb` files are exploratory; the scripts are the authoritative pipeline.
