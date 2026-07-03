@@ -5,7 +5,7 @@ import tomllib
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from common import load_data, cache_path, parse_numplayers_poll
+from common import load_data, cache_path, parse_numplayers_poll, is_for_trade
 
 BGG_USERNAME = os.environ["BGG_USERNAME"]
 REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
@@ -69,8 +69,8 @@ def display_name(game, item, overrides):
 def _owned_publisher(item):
     """First publisher of the owned edition, from the version's links (blank if none)."""
     version = item.get('version', {}).get('item') or {}
-    pubs = [l['@value'] for l in _as_list(version.get('link'))
-            if isinstance(l, dict) and l.get('@type') == 'boardgamepublisher' and l.get('@value')]
+    pubs = [link['@value'] for link in _as_list(version.get('link'))
+            if isinstance(link, dict) and link.get('@type') == 'boardgamepublisher' and link.get('@value')]
     if not pubs:
         return ''
     return pubs[0] + ' +' if len(pubs) > 1 else pubs[0]
@@ -131,9 +131,11 @@ def build_card(game, item, overrides):
     }
 
 if __name__ == "__main__":
-    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA, include_for_trade=INCLUDE_FOR_TRADE)
+    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA)
     games_list = data['games']
     items = {i['@objectid']: i for i in _as_list(data['collection']['items']['item'])}
+    if not INCLUDE_FOR_TRADE:
+        games_list = [g for g in games_list if not is_for_trade(items.get(g['@objectid'], {}))]
 
     data_date = datetime.fromtimestamp(os.path.getmtime(cache_path(BGG_USERNAME))).strftime('%b %d %Y')
 

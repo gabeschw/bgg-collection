@@ -55,7 +55,7 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
 def cache_path(username):
     return os.path.join(CACHE_DIR, f"{username}.json")
 
-def _fetch(username, include_for_trade):
+def _fetch(username):
     collection = bgg_api_to_dict('collection', {
         'username': username,
         'version': 1,
@@ -66,8 +66,6 @@ def _fetch(username, include_for_trade):
     items = collection['items']['item']
     if not isinstance(items, list):
         items = [items]
-    if include_for_trade:
-        items = [i for i in items if i.get('status', {}).get('@fortrade') == '1']
     game_ids = [i['@objectid'] for i in items]
 
     games = []
@@ -82,21 +80,26 @@ def _fetch(username, include_for_trade):
 
     return {'collection': collection, 'games': games}
 
-def load_data(username, refresh, include_for_trade=False):
-    """Return the collection + games data, fetching from BGG when needed.
+def load_data(username, refresh):
+    """Return the full owned collection + games data, fetching from BGG when needed.
 
-    Fetches (and rewrites the cache) when `refresh` is set or no cache exists;
+    Caches everything (for-trade filtering is a render-time concern), so it
+    fetches (and rewrites the cache) when `refresh` is set or no cache exists;
     otherwise reads the cache. Fetching requires BGG_API_TOKEN.
     """
     path = cache_path(username)
     if refresh or not os.path.exists(path):
-        data = _fetch(username, include_for_trade)
+        data = _fetch(username)
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(data, f)
         return data
     with open(path) as f:
         return json.load(f)
+
+def is_for_trade(item):
+    """True if the collection item is flagged for trade."""
+    return (item.get('status') or {}).get('@fortrade') == '1'
 
 def parse_numplayers_poll(poll, threshold=0.60):
     """Return the player counts the BGG community rates Best/Recommended.

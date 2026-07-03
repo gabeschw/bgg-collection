@@ -11,14 +11,14 @@ REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
 INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 
 if __name__ == "__main__":
-    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA, include_for_trade=INCLUDE_FOR_TRADE)
+    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA)
     collection_dict = data['collection']
     games_list = data['games']
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = pd.json_normalize(collection_dict['items']['item'])
-    if INCLUDE_FOR_TRADE:
-        collection = collection[collection['status.@fortrade'] == '1']
+    if not INCLUDE_FOR_TRADE:
+        collection = collection[collection['status.@fortrade'] != '1']
 
     # Convert games to DataFrames and merge with collection data
     games      = pd.json_normalize(games_list)
