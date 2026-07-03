@@ -1,0 +1,33 @@
+# Per-game overrides for the reference guide.
+#
+# Keyed by BoardGameGeek object id (the build prints a report of long names
+# with their ids after each run, so you can copy the id straight in here).
+#
+# Each [overrides."<id>"] table may set any card field. Today only `name` is
+# used; the structure leaves room for more later (e.g. description = "...").
+#
+# Use this mainly for names too long to fit on one card line where no automatic
+# rule applies — colon subtitles in particular need a human call on whether to
+# keep the part before or after the colon. Trailing "(...)" parentheticals are
+# handled automatically and usually do not need an entry here.
+
+[overrides."130176"]  # Tales & Games: The Hare & the Tortoise
+name = "The Hare & the Tortoise"
+
+[overrides."258210"]  # Blitzkrieg!: World War Two in 20 Minutes
+name = "Blitzkrieg!"
+
+[overrides."284083"]  # The Crew: The Quest for Planet Nine
+name = "The Crew"
+
+[overrides."338957"]  # Caesar!: Seize Rome in 20 Minutes!
+name = "Caesar!"
+
+[overrides."191300"]  # Archaeology: The New Expedition
+name = "Archaeology"
+
+[overrides."156129"]  # Deception: Murder in Hong Kong
+name = "Deception"
+
+[overrides."319966"]  # The King Is Dead: Second Edition
+name = "The King Is Dead"

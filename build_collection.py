@@ -7,6 +7,8 @@ from tqdm import tqdm
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
+from common import parse_numplayers_poll, recommended_players_string
+
 pd.set_option('future.no_silent_downcasting', True)
 
 BGG_USERNAME = os.environ["BGG_USERNAME"]
@@ -50,29 +52,6 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
         return xmltodict.parse(r.content)
     raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
 
-def parse_numplayers_poll(poll, threshold=0.60):
-    try:
-        np_poll = poll[0]
-    except TypeError:
-        return []
-
-    if int(np_poll['@totalvotes']) < 1 or np_poll['@name'] != 'suggested_numplayers':
-        return []
-
-    recommended = []
-    for np_dict in np_poll['results']:
-        num_players = int(np_dict['@numplayers'].replace('+', ''))
-        good_votes  = 0
-        total_votes = 0
-        for row in np_dict['result']:
-            votes = int(row['@numvotes'])
-            total_votes += votes
-            if row['@value'] in ('Best', 'Recommended'):
-                good_votes += votes
-        if total_votes > 0 and good_votes / total_votes >= threshold:
-            recommended.append(num_players)
-    return recommended
-
 if __name__ == "__main__":
     # Download collection XML data
     collection_dict = bgg_api_to_dict('collection', {
@@ -111,9 +90,7 @@ if __name__ == "__main__":
 
     # Parse recommended number of players from poll data
     recommended_players = collection.poll.apply(parse_numplayers_poll)
-    collection['Players'] = recommended_players.apply(
-        lambda nums: "".join(str(n) if n in nums else "_" for n in range(1, 10))
-    )
+    collection['Players'] = recommended_players.apply(recommended_players_string)
     for np in range(1, 7):
         collection[f'np_{np}'] = recommended_players.apply(lambda nums, n=np: n in nums)
     collection['np_7+'] = recommended_players.apply(lambda nums: any(p >= 7 for p in nums))
@@ -172,8 +149,8 @@ if __name__ == "__main__":
     })
 
     # Render and export HTML
-    env = Environment(loader=FileSystemLoader("."))
-    template = env.get_template("collection_template.html")
+    env = Environment(loader=FileSystemLoader("templates"))
+    template = env.get_template("collection.html")
     rendered = template.render(
         bgg_username=BGG_USERNAME,
         last_update_date=last_update_date,

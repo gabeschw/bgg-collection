@@ -2,11 +2,10 @@
 .env
 *.pickle
 *.csv
-*.html
 *.xml
 envs/
 output/
-docs/
+ref/
 
 # project-local contains your personal configuration choices and state
 /anaconda-project-local.yml

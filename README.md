@@ -1,12 +1,25 @@
 # bgg-collection
 
-Downloads a BGG user's board game collection and generates a printable HTML report plus CSV.
+Fetch a BoardGameGeek user's collection and turn it into two printable documents:
+
+- **Collection report** — a compact, sortable table of the whole collection (`build_collection.py`).
+- **Reference guide** — a magazine-style card per game (`build_reference.py`).
+
+## Setup
+
+Copy `.env.example` to `.env` and fill in your BGG username and API token, then install dependencies:
 
 ```bash
-uv run python create_collection_html.py
+uv sync
 ```
 
-## Report Columns
+## Collection report
+
+`build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV). It also caches the raw game data to `games_list.pickle`, which the reference guide reuses.
+
+```bash
+uv run python build_collection.py
+```
 
 | Column | Description |
 |--------|-------------|
@@ -20,5 +33,24 @@ uv run python create_collection_html.py
 | BGG Avg | Community rating on BGG (1–10) |
 | Rating | Your personal rating (1–10) |
 | # Plays | Number of times played |
+
+## Reference guide
+
+`build_reference.py` renders a print-ready, magazine-style color reference — one card per game with box art, publisher/designer/theme/mechanics, recommended player counts, and complexity — laid out four to a portrait Letter page. Output goes to `output/reference_<username>.html`.
+
+```bash
+uv run python build_reference.py
+```
+
+It reads `games_list.pickle` (written by `build_collection.py`), so **run the collection report first**. When printing to PDF, enable "Background graphics" so the colored elements render.
+
+### Name overrides
+
+Game names too long to fit on a card line can be shortened in `overrides.toml`, keyed by BGG object id. Trailing `(...)` parentheticals are trimmed automatically; colon subtitles need a manual choice. Each run prints the ids of names that may not fit, ready to paste in:
+
+```toml
+[overrides."130176"]  # Tales & Games: The Hare & the Tortoise
+name = "The Hare & the Tortoise"
+```
 
 ![Powered by BGG](bgg.png)
