@@ -2,7 +2,10 @@ import os
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
-from common import load_data, parse_numplayers_poll, recommended_players_string
+from common import (
+    load_data, parse_numplayers_poll, recommended_players_string,
+    display_name, load_overrides, _as_list,
+)
 
 pd.set_option('future.no_silent_downcasting', True)
 
@@ -14,6 +17,10 @@ if __name__ == "__main__":
     data = load_data(BGG_USERNAME, refresh=REFRESH_DATA)
     collection_dict = data['collection']
     games_list = data['games']
+
+    overrides = load_overrides()
+    items_by_id = {i['@objectid']: i for i in _as_list(collection_dict['items']['item'])}
+    games_by_id = {g['@objectid']: g for g in games_list}
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = pd.json_normalize(collection_dict['items']['item'])
@@ -32,7 +39,8 @@ if __name__ == "__main__":
     collection['np_7+'] = recommended_players.apply(lambda nums: any(p >= 7 for p in nums))
 
     # Create columns for HTML export
-    collection['Name']       = collection['name.#text']
+    collection['Name']       = collection['@objectid'].map(
+        lambda oid: display_name(games_by_id.get(oid, {}), items_by_id.get(oid, {}), overrides))
     collection['Time']       = collection['playingtime'].astype(int)
     collection['# Plays']    = collection['numplays']
     collection['Rating']     = collection['stats.rating.@value'].replace('N/A', ' ')

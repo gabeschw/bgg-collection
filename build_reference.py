@@ -1,16 +1,17 @@
 import os
 import re
 import html
-import tomllib
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from common import load_data, cache_path, parse_numplayers_poll, is_for_trade
+from common import (
+    load_data, cache_path, parse_numplayers_poll, is_for_trade,
+    display_name, load_overrides, _as_list,
+)
 
 BGG_USERNAME = os.environ["BGG_USERNAME"]
 REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
 INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
-OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", "overrides.toml")
 
 # Personal-rating thresholds for the favorite medal, highest tier first.
 FAVORITE_TIERS = [
@@ -19,11 +20,6 @@ FAVORITE_TIERS = [
     ('bronze', float(os.environ.get("FAVORITE_BRONZE", 8))),
 ]
 
-def _as_list(field):
-    if field is None or isinstance(field, float):
-        return []
-    return field if isinstance(field, list) else [field]
-
 def _names(field, limit=None, sep=', ', more='+'):
     texts = [i['#text'] for i in _as_list(field) if isinstance(i, dict) and i.get('#text')]
     if not texts:
@@ -31,47 +27,6 @@ def _names(field, limit=None, sep=', ', more='+'):
     if limit and len(texts) > limit:
         return sep.join(texts[:limit]) + ' ' + more
     return sep.join(texts)
-
-def _primary_name(field):
-    items = _as_list(field)
-    for i in items:
-        if isinstance(i, dict) and i.get('@primary') == 'true':
-            return i.get('#text', '')
-    return items[0].get('#text', '') if items and isinstance(items[0], dict) else ''
-
-def load_overrides(path=OVERRIDES_FILE):
-    """Load per-game overrides keyed by object id, e.g. {'130176': {'name': ...}}."""
-    try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get('overrides', {})
-    except FileNotFoundError:
-        return {}
-
-def _clean_name(name):
-    """Trim a trailing "(...)" parenthetical from a name.
-
-    Keeps the part before the parens when it has Latin letters (drops edition/
-    disambiguation notes); otherwise uses the parenthetical, which is how a
-    non-Latin primary name shows its English title,
-    e.g. "白と黒でトリテ (Trick-Taking in Black and White)".
-    """
-    m = re.match(r'^(.*?)\s*\(([^()]*)\)\s*$', name)
-    if not m:
-        return name
-    head, paren = m.group(1).strip(), m.group(2).strip()
-    return head if re.search(r'[A-Za-z]', head) else paren
-
-def _collection_name(item):
-    name = item.get('name')
-    return name.get('#text') if isinstance(name, dict) else (name or '')
-
-def display_name(game, item, overrides):
-    """Prefer an explicit override, then the owned edition's name (what BGG shows
-    for the collection item), then the game's canonical name."""
-    override = overrides.get(game['@objectid'], {}).get('name')
-    if override:
-        return override
-    return _clean_name(_collection_name(item) or _primary_name(game.get('name')))
 
 def _owned_publisher(item):
     """First publisher of the owned edition, from the version's links (blank if none)."""
@@ -133,7 +88,7 @@ def build_card(game, item, overrides):
     ratings = game.get('statistics', {}).get('ratings', {})
     return {
         'id':          game['@objectid'],
-        'name':        display_name(game, item, overrides),
+        'name':        display_name(game, item, overrides, short=True),
         'url':         f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
         'medal':       _medal(item),
         'image':       item.get('image') or game.get('image') or game.get('thumbnail') or '',

@@ -1,20 +1,17 @@
-# Per-game overrides for the reference guide.
+# Per-game overrides, keyed by BoardGameGeek object id.
 #
-# Keyed by BoardGameGeek object id (the build prints a report of long names
-# with their ids after each run, so you can copy the id straight in here).
+# Two name fields, so the two outputs can differ where it matters:
+#   name  = display name used EVERYWHERE (collection report + reference card).
+#           Use it to fix a name — e.g. restore the canonical English title
+#           over a localized edition, or drop a series prefix.
+#   short = name used ONLY on the reference card, which must fit one line.
+#           The collection report (a wide table) keeps the full name.
 #
-# Each [overrides."<id>"] table may set any card field. Today only `name` is
-# used; the structure leaves room for more later (e.g. description = "...").
-#
-# The card name defaults to the owned edition's name (from the collection item);
-# use an override to force a different one — e.g. a name too long to fit on one
-# card line (colon subtitles need a human call on which half to keep), or to
-# restore the canonical English name over a localized edition.
+# The name otherwise defaults to the owned edition's name (from the collection
+# item); trailing "(...)" parentheticals are trimmed automatically.
 
-[overrides."130176"]  # Tales & Games: The Hare & the Tortoise
-name = "The Hare & the Tortoise"
+# --- Name fixes (apply everywhere) ---
 
-# Restore the canonical name over the owned localized edition:
 [overrides."42"]      # owned edition: Euphrat & Tigris
 name = "Tigris & Euphrates"
 
@@ -24,20 +21,25 @@ name = "Fast Sloths"
 [overrides."354"]     # owned edition: Sticheln
 name = "Stick 'Em"
 
+# --- Card-only shortenings (table keeps the full name) ---
+
+[overrides."130176"]  # Tales & Games: The Hare & the Tortoise
+short = "The Hare & the Tortoise"
+
 [overrides."258210"]  # Blitzkrieg!: World War Two in 20 Minutes
-name = "Blitzkrieg!"
+short = "Blitzkrieg!"
 
 [overrides."284083"]  # The Crew: The Quest for Planet Nine
-name = "The Crew"
+short = "The Crew"
 
 [overrides."338957"]  # Caesar!: Seize Rome in 20 Minutes!
-name = "Caesar!"
+short = "Caesar!"
 
 [overrides."191300"]  # Archaeology: The New Expedition
-name = "Archaeology"
+short = "Archaeology"
 
 [overrides."156129"]  # Deception: Murder in Hong Kong
-name = "Deception"
+short = "Deception"
 
 [overrides."319966"]  # The King Is Dead: Second Edition
-name = "The King Is Dead"
+short = "The King Is Dead"

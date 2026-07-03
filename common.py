@@ -8,8 +8,10 @@ The cache holds the raw API responses:
     {"collection": <collection response>, "games": [<boardgame dicts>]}
 """
 import os
+import re
 import json
 import time
+import tomllib
 import requests
 import xmltodict
 from tqdm import tqdm
@@ -100,6 +102,60 @@ def load_data(username, refresh):
 def is_for_trade(item):
     """True if the collection item is flagged for trade."""
     return (item.get('status') or {}).get('@fortrade') == '1'
+
+def _as_list(field):
+    if field is None or isinstance(field, float):
+        return []
+    return field if isinstance(field, list) else [field]
+
+def _primary_name(field):
+    items = _as_list(field)
+    for i in items:
+        if isinstance(i, dict) and i.get('@primary') == 'true':
+            return i.get('#text', '')
+    return items[0].get('#text', '') if items and isinstance(items[0], dict) else ''
+
+def _collection_name(item):
+    name = item.get('name')
+    return name.get('#text') if isinstance(name, dict) else (name or '')
+
+def _clean_name(name):
+    """Trim a trailing "(...)" parenthetical from a name.
+
+    Keeps the part before the parens when it has Latin letters (drops edition/
+    disambiguation notes); otherwise uses the parenthetical, which is how a
+    non-Latin primary name shows its English title,
+    e.g. "白と黒でトリテ (Trick-Taking in Black and White)".
+    """
+    m = re.match(r'^(.*?)\s*\(([^()]*)\)\s*$', name)
+    if not m:
+        return name
+    head, paren = m.group(1).strip(), m.group(2).strip()
+    return head if re.search(r'[A-Za-z]', head) else paren
+
+OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", "overrides.toml")
+
+def load_overrides(path=OVERRIDES_FILE):
+    """Load per-game overrides keyed by object id, e.g. {'42': {'name': ...}}."""
+    try:
+        with open(path, 'rb') as f:
+            return tomllib.load(f).get('overrides', {})
+    except FileNotFoundError:
+        return {}
+
+def display_name(game, item, overrides, short=False):
+    """Resolve a game's display name.
+
+    `name` overrides apply everywhere; a `short` override applies only where
+    `short=True` (the reference card, which has one line). Otherwise use the
+    owned edition's name (collection item), falling back to the canonical name.
+    """
+    ov = overrides.get(game.get('@objectid'), {})
+    if short and ov.get('short'):
+        return ov['short']
+    if ov.get('name'):
+        return ov['name']
+    return _clean_name(_collection_name(item) or _primary_name(game.get('name')))
 
 def parse_numplayers_poll(poll, threshold=0.60):
     """Return the player counts the BGG community rates Best/Recommended.
