@@ -7,16 +7,19 @@ requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
     "pandas>=2.2.3",
+    "pydantic-ai>=2.5.0",
     "requests>=2.32.3",
     "tqdm>=4.67.1",
     "xmltodict>=0.14.2",
 ]
 
-[project.optional-dependencies]
-# Only needed for the exploratory notebook under notebooks/, not the scripts.
-notebook = [
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
     "jupyter>=1.1.1",
     "polars>=1.42.1",
     "pyarrow>=24.0.0",
     "seaborn>=0.13.2",
+    "scikit-learn>=1.9.0",
 ]
