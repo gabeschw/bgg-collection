@@ -16,7 +16,10 @@ import requests
 import xmltodict
 from tqdm import tqdm
 
-CACHE_DIR = "cache"
+# Anchor paths to this file's directory so they resolve the same from the
+# scripts (run at the repo root) and from a notebook (a different cwd).
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+CACHE_DIR = os.path.join(_ROOT, "cache")
 BGG_BATCH_SIZE = 20  # BGG's maximum per boardgame request
 
 def _headers():
@@ -133,7 +136,7 @@ def _clean_name(name):
     head, paren = m.group(1).strip(), m.group(2).strip()
     return head if re.search(r'[A-Za-z]', head) else paren
 
-OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", "overrides.toml")
+OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", os.path.join(_ROOT, "overrides.toml"))
 
 def load_overrides(path=OVERRIDES_FILE):
     """Load per-game overrides keyed by object id, e.g. {'42': {'name': ...}}."""
