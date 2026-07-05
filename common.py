@@ -9,6 +9,7 @@ The cache holds the raw API responses:
 """
 import os
 import re
+import html
 import json
 import time
 import tomllib
@@ -59,6 +60,20 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
 
 def cache_path(username):
     return os.path.join(CACHE_DIR, f"{username}.json")
+
+DESCRIPTIONS_FILE = os.path.join(_ROOT, "descriptions.json")
+
+def load_descriptions(path=DESCRIPTIONS_FILE):
+    """Load archived LLM summaries keyed by object id (empty if none yet)."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_descriptions(store, path=DESCRIPTIONS_FILE):
+    with open(path, 'w') as f:
+        json.dump(store, f, indent=2, ensure_ascii=False, sort_keys=True)
 
 def _fetch(username):
     collection = bgg_api_to_dict('collection', {
@@ -120,13 +135,15 @@ def is_for_trade(item):
     """True if the collection item is flagged for trade."""
     return (item.get('status') or {}).get('@fortrade') == '1'
 
-def _as_list(field):
+def as_list(field):
+    """Wrap a BGG field that may be a single dict, a list, or missing into a list."""
     if field is None or isinstance(field, float):
         return []
     return field if isinstance(field, list) else [field]
 
-def _primary_name(field):
-    items = _as_list(field)
+def primary_name(field):
+    """The game's primary (@primary='true') name, or the first name if none is flagged."""
+    items = as_list(field)
     for i in items:
         if isinstance(i, dict) and i.get('@primary') == 'true':
             return i.get('#text', '')
@@ -135,6 +152,19 @@ def _primary_name(field):
 def _collection_name(item):
     name = item.get('name')
     return name.get('#text') if isinstance(name, dict) else (name or '')
+
+def names(field, limit=None, sep=', ', more='+'):
+    """Join the '#text' values of a possibly-nested BGG field (list/dict/None)."""
+    texts = [i['#text'] for i in as_list(field) if isinstance(i, dict) and i.get('#text')]
+    if not texts:
+        return ''
+    if limit and len(texts) > limit:
+        return sep.join(texts[:limit]) + ' ' + more
+    return sep.join(texts)
+
+def clean_text(text):
+    """Unescape HTML entities and collapse whitespace to a single line."""
+    return re.sub(r'\s+', ' ', html.unescape(text or '').replace('\n', ' ')).strip()
 
 def _clean_name(name):
     """Trim a trailing "(...)" parenthetical from a name.
@@ -172,7 +202,7 @@ def display_name(game, item, overrides, short=False):
         return ov['short']
     if ov.get('name'):
         return ov['name']
-    return _clean_name(_collection_name(item) or _primary_name(game.get('name')))
+    return _clean_name(_collection_name(item) or primary_name(game.get('name')))
 
 def parse_numplayers_poll(poll, threshold=0.60):
     """Return the player counts the BGG community rates Best/Recommended.

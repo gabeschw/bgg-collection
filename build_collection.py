@@ -4,7 +4,7 @@ import pandas as pd
 
 from common import (
     load_data, collection_df, parse_numplayers_poll,
-    recommended_players_string, display_name, load_overrides, _as_list,
+    recommended_players_string, display_name, load_overrides, as_list,
 )
 
 pd.set_option('future.no_silent_downcasting', True)
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     games_list = data['games']
 
     overrides = load_overrides()
-    items_by_id = {i['@objectid']: i for i in _as_list(collection_dict['items']['item'])}
+    items_by_id = {i['@objectid']: i for i in as_list(collection_dict['items']['item'])}
     games_by_id = {g['@objectid']: g for g in games_list}
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
