@@ -3,8 +3,8 @@ from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
 from common import (
-    load_data, parse_numplayers_poll, recommended_players_string,
-    display_name, load_overrides, _as_list,
+    load_data, collection_df, parse_numplayers_poll,
+    recommended_players_string, display_name, load_overrides, _as_list,
 )
 
 pd.set_option('future.no_silent_downcasting', True)
@@ -23,13 +23,9 @@ if __name__ == "__main__":
     games_by_id = {g['@objectid']: g for g in games_list}
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
-    collection = pd.json_normalize(collection_dict['items']['item'])
+    collection = collection_df(data=data)
     if not INCLUDE_FOR_TRADE:
         collection = collection[collection['status.@fortrade'] != '1']
-
-    # Convert games to DataFrames and merge with collection data
-    games      = pd.json_normalize(games_list)
-    collection = collection.merge(games, how='left', on='@objectid', suffixes=('', '_g'))
 
     # Parse recommended number of players from poll data
     recommended_players = collection.poll.apply(parse_numplayers_poll)

@@ -102,6 +102,20 @@ def load_data(username, refresh):
     with open(path) as f:
         return json.load(f)
 
+def collection_df(username=None, refresh=False, data=None):
+    """Owned collection merged with per-game data, as a DataFrame for analysis.
+
+    Pass `data` from load_data() to reuse it, otherwise give a `username` to load
+    from the cache. Nested fields (publisher/mechanic/version lists) are kept as
+    objects rather than the stringified form the exported CSV has.
+    """
+    import pandas as pd
+    if data is None:
+        data = load_data(username, refresh)
+    collection = pd.json_normalize(data['collection']['items']['item'])
+    games = pd.json_normalize(data['games'])
+    return collection.merge(games, how='left', on='@objectid', suffixes=('', '_g'))
+
 def is_for_trade(item):
     """True if the collection item is flagged for trade."""
     return (item.get('status') or {}).get('@fortrade') == '1'
