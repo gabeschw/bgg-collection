@@ -48,7 +48,7 @@ It uses the same `cache/<username>.json`, so it can run before or after the coll
 
 ### Card descriptions
 
-Card descriptions come from `descriptions.json`, generated separately by an LLM (see below); if a game has no entry, the cleaned/truncated BGG description is used as a fallback.
+Card descriptions come from `_descriptions.json`, generated separately by an LLM (see below); if a game has no entry, the cleaned/truncated BGG description is used as a fallback.
 
 ### Overrides
 
@@ -70,7 +70,7 @@ short = "The Crew"
 
 ## Descriptions (optional, LLM)
 
-`build_descriptions.py` rewrites each game's BGG description into a consistent, length-capped (≤450 char) blurb and archives them to `descriptions.json` (keyed by object id). It's the only script that calls an LLM (via OpenRouter), and it's run occasionally — the fast build just reads the file.
+`build_descriptions.py` rewrites each game's BGG description into a consistent, length-capped (≤450 char) blurb and archives them to `_descriptions.json` (keyed by object id). It's the only script that calls an LLM (via OpenRouter), and it's run occasionally — the fast build just reads the file.
 
 ```bash
 uv run python build_descriptions.py <username>

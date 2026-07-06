@@ -4,7 +4,6 @@
 *.csv
 *.xml
 cache/
-descriptions.json
 envs/
 output/
 ref/

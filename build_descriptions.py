@@ -2,7 +2,7 @@
 
 Reads the cache written by build_collection.py, rewrites each game's description in a
 consistent house voice grounded in structured facts, enforces a character ceiling, and
-stores the results in descriptions.json (keyed by object id). build_reference.py reads
+stores the results in cache/_descriptions.json (keyed by object id). build_reference.py reads
 that file; this script is the only place that calls an LLM.
 
 Only missing or stale entries are regenerated (see the source-hash / PROMPT_VERSION /

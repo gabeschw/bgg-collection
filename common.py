@@ -61,7 +61,7 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
 def cache_path(username):
     return os.path.join(CACHE_DIR, f"{username}.json")
 
-DESCRIPTIONS_FILE = os.path.join(_ROOT, "descriptions.json")
+DESCRIPTIONS_FILE = os.path.join(CACHE_DIR, "_descriptions.json")
 
 def load_descriptions(path=DESCRIPTIONS_FILE):
     """Load archived LLM summaries keyed by object id (empty if none yet)."""
