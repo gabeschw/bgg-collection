@@ -1,3 +1,4 @@
+"""Render a sortable HTML table and CSV of a BGG user's collection, grouped by recommended player count."""
 import click
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
@@ -20,6 +21,7 @@ pd.set_option('future.no_silent_downcasting', True)
 @click.option('--include-for-trade', is_flag=True, default=False,
               help='Include games marked For Trade in BGG')
 def main(username, refresh_data, include_for_trade):
+    """Download the collection from BGG and write the collection report to output/."""
     data = common.load_data(username, refresh=refresh_data)
     collection_dict = data['collection']
     games_list = data['games']

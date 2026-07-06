@@ -1,12 +1,5 @@
-"""Shared BoardGameGeek layer: fetch + cache the data, and parse it.
-
-Both build scripts call load_data(), so either can populate the shared per-user
-cache under cache/. When the cache is present and REFRESH_DATA is off, rendering
-runs entirely from it — no API token or network needed.
-
-The cache holds the raw API responses:
-    {"collection": <collection response>, "games": [<boardgame dicts>]}
-"""
+"""Shared data layer for BGG collection scripts: API fetch, caching, name resolution,
+poll parsing, and file I/O for overrides and LLM descriptions."""
 import os
 import re
 import html
@@ -28,6 +21,7 @@ def _headers():
     return {"Authorization": f"Bearer {os.environ['BGG_API_TOKEN']}"}
 
 def bgg_api_to_dict(endpoint, params, retries=5):
+    """Fetch from the BGG XML API 2, retrying on 202 (accepted, not yet ready)."""
     for _ in range(retries):
         r = requests.get(
             "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
@@ -42,6 +36,7 @@ def bgg_api_to_dict(endpoint, params, retries=5):
     raise RuntimeError(f"BGG API returned 202 {retries} times for {endpoint}")
 
 def bgg_game_to_dict(game_ids, params=None, retries=5):
+    """Fetch per-game data from BGG's older xmlapi (supports batch via comma-separated IDs)."""
     if isinstance(game_ids, list):
         game_ids = ",".join(str(i) for i in game_ids)
     params = params or {}
@@ -59,6 +54,7 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
     raise RuntimeError(f"BGG API returned 202 {retries} times for boardgame {game_ids}")
 
 def cache_path(username):
+    """Path to the per-user BGG cache file."""
     return os.path.join(CACHE_DIR, f"{username}.json")
 
 DESCRIPTIONS_FILE = os.path.join(CACHE_DIR, "_descriptions.json")
@@ -72,6 +68,7 @@ def load_descriptions(path=DESCRIPTIONS_FILE):
         return {}
 
 def fetch_user_data(username):
+    """Fetch the full collection and per-game data from BGG, returning {"collection": ..., "games": [...]}."""
     collection = bgg_api_to_dict('collection', {
         'username': username,
         'version': 1,

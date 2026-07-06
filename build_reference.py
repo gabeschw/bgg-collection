@@ -1,3 +1,4 @@
+"""Render a magazine-style reference guide with one card per game, four per A4 page."""
 import os
 from datetime import datetime
 import click
@@ -48,6 +49,7 @@ def _resolve_descriptions(game, overrides, descriptions):
     return text
 
 def _players(game):
+    """Format the player range as 'lo–hi', 'lo', or 'hi'."""
     lo, hi = game.get('minplayers'), game.get('maxplayers')
     if not lo or lo == '0':
         return hi or ''
@@ -71,6 +73,7 @@ def _medal(item):
     return ''
 
 def build_card(game, item, overrides, descriptions):
+    """Build the card dict for a single game from the collection item and BGG data."""
     # Identity fields (name, image, year, publisher) reflect the owned edition
     # via the collection item; the rest comes from the game's canonical data.
     ratings = game.get('statistics', {}).get('ratings', {})
@@ -98,6 +101,7 @@ def build_card(game, item, overrides, descriptions):
 @click.option('--include-for-trade', is_flag=True, default=False,
               help='Include games marked For Trade in BGG')
 def main(username, refresh_data, include_for_trade):
+    """Download the collection from BGG and render the reference guide to output/."""
     data = common.load_data(username, refresh=refresh_data)
     games_list = data['games']
     items = {i['@objectid']: i for i in common.as_list(data['collection']['items']['item'])}

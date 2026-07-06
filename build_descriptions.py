@@ -80,6 +80,7 @@ async def summarize(game) -> str:
     return min(attempts, key=len)
 
 async def _run(username):
+    """Walk all games in the cache and regenerate stale or missing LLM descriptions."""
     data = common.load_data(username, refresh=False)  # read cache; build_collection fetches
     store = common.load_descriptions()
 
@@ -114,6 +115,7 @@ async def _run(username):
 @click.command()
 @click.argument('username')
 def main(username):
+    """Rewrite game descriptions with an LLM and archive them to cache/_descriptions.json."""
     asyncio.run(_run(username))
 
 
