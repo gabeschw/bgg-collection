@@ -54,15 +54,15 @@
 
     /* One printed sheet: exactly four equal cards in a 2x2 grid. */
     .page {
-        width: 8.5in;
-        height: 11in;
-        padding: 0.35in;
+        width: 210mm;
+        height: 297mm;
+        padding: 9mm;
         background: var(--bg);
         box-shadow: 0 3px 14px rgba(0,0,0,0.18);
         display: grid;
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
-        gap: 0.22in;
+        gap: 5.5mm;
     }
 
     .card {
@@ -163,7 +163,7 @@
         body { background: #fff; }
         header.masthead { display: none; }
         main { display: block; padding: 0; gap: 0; overflow: visible; }
-        @page { size: letter portrait; margin: 0; }
+        @page { size: A4 portrait; margin: 0; }
         .page {
             box-shadow: none;
             break-after: page;
