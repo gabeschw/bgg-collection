@@ -46,6 +46,8 @@ uv run python build_reference.py <username>
 
 It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `--refresh-data` populates the cache. Print to PDF straight from the browser; backgrounds are forced on via CSS, so no print-dialog tweaks are needed.
 
+Pass `--local-images` to download and shrink images to 600px JPEGs before rendering, which keeps the PDF size manageable (helpful when planning to print to PDF).
+
 ### Card descriptions
 
 Card descriptions come from `_descriptions.json`, generated separately by an LLM (see below); if a game has no entry, the cleaned/truncated BGG description is used as a fallback.

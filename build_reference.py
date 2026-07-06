@@ -1,10 +1,35 @@
 """Render a magazine-style reference guide with one card per game, four per A4 page."""
 import os
 from datetime import datetime
+from io import BytesIO
 import click
+import requests
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from PIL import Image
+from tqdm import tqdm
 
 import common
+
+IMAGE_MAX_DIM = 600
+
+def _resize_image(url, output_path):
+    """Download an image, resize to IMAGE_MAX_DIM, and save as JPEG."""
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content))
+        if max(img.size) > IMAGE_MAX_DIM:
+            ratio = IMAGE_MAX_DIM / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+        if img.mode in ('RGBA', 'P', 'PA'):
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            img = img.convert('RGB')
+        img.save(output_path, 'JPEG', quality=85)
+        return True
+    except Exception:
+        return False
 
 # Personal-rating thresholds for the favorite medal, highest tier first.
 FAVORITE_TIERS = [
@@ -100,7 +125,9 @@ def build_card(game, item, overrides, descriptions):
               help='Fetch fresh data from BGG API')
 @click.option('--include-for-trade', is_flag=True, default=False,
               help='Include games marked For Trade in BGG')
-def main(username, refresh_data, include_for_trade):
+@click.option('--local-images', is_flag=True, default=False,
+              help='Download and resize images locally to reduce PDF size')
+def main(username, refresh_data, include_for_trade, local_images):
     """Download the collection from BGG and render the reference guide to output/."""
     data = common.load_data(username, refresh=refresh_data)
     games_list = data['games']
@@ -110,9 +137,28 @@ def main(username, refresh_data, include_for_trade):
 
     data_date = datetime.fromtimestamp(os.path.getmtime(common.cache_path(username))).strftime('%b %d %Y')
 
+    # Optionally download + resize images to keep PDF size reasonable
+    image_map = {}
+    if local_images:
+        image_dir = os.path.join('output', f'{username}_images')
+        os.makedirs(image_dir, exist_ok=True)
+        for g in tqdm(games_list, desc='Images'):
+            gid = g['@objectid']
+            item = items.get(gid, {})
+            image_url = item.get('image') or g.get('image') or g.get('thumbnail') or ''
+            if image_url:
+                local_path = os.path.join(image_dir, f'{gid}.jpg')
+                if not os.path.exists(local_path):
+                    _resize_image(image_url, local_path)
+                if os.path.exists(local_path):
+                    image_map[gid] = f'{username}_images/{gid}.jpg'
+
     overrides = common.load_overrides()
     descriptions = common.load_descriptions()
     cards = [build_card(g, items.get(g['@objectid'], {}), overrides, descriptions) for g in games_list]
+    for c in cards:
+        if c['id'] in image_map:
+            c['image'] = image_map[c['id']]
     cards.sort(key=lambda c: c['name'].lower())
 
     env = Environment(
