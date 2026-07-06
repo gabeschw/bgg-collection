@@ -17,9 +17,9 @@ from pydantic_ai import Agent
 
 import common
 
-# OPENROUTER_MODEL may be a bare OpenRouter slug ("google/gemini-2.5-flash-lite") or a
+# LLM_MODEL may be a bare OpenRouter slug ("google/gemini-2.5-flash-lite") or a
 # full pydantic-ai id ("openrouter:..."); normalize to the prefixed form.
-_model = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash-lite")
+_model = os.environ.get("LLM_MODEL") or os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash-lite")
 MODEL = _model if _model.startswith("openrouter:") else f"openrouter:{_model}"
 TEMPERATURE = 0.8
 NUM_RETRIES = 5

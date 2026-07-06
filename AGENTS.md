@@ -35,6 +35,6 @@ No tests, lint, or CI.
 - **Package manager**: `uv`. Lockfile is `uv.lock`. Do not use pip/conda.
 - **Python version**: 3.12 (`.python-version`).
 - **CLI options**: `username` is a required positional argument. `--refresh-data` (fetch fresh data from BGG) and `--include-for-trade` (include for-trade games) are optional flags, both defaulting to `false`.
-- **Env vars**: `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `OPENROUTER_API_KEY` (+ optional `OPENROUTER_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
+- **Env vars**: `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `LLM_API_KEY` (+ optional `LLM_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
 - **Batching**: Per-game API calls are batched 20 per request (`BGG_BATCH_SIZE = 20` in `common.py`), sleeping 2s between batches. 20 is BGG's enforced maximum.
 - **Notebooks**: `.ipynb` files are exploratory; the scripts are the authoritative pipeline.

@@ -107,7 +107,7 @@ def build_card(game, item, overrides, descriptions):
 @click.option('--refresh-data', is_flag=True, default=False,
               help='Fetch fresh data from BGG API')
 @click.option('--include-for-trade', is_flag=True, default=False,
-              help='Include games marked for trade')
+              help='Include games marked For Trade in BGG')
 def main(username, refresh_data, include_for_trade):
     data = load_data(username, refresh=refresh_data)
     games_list = data['games']
