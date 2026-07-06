@@ -1,4 +1,4 @@
-import os
+import click
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
@@ -9,12 +9,15 @@ from common import (
 
 pd.set_option('future.no_silent_downcasting', True)
 
-BGG_USERNAME = os.environ["BGG_USERNAME"]
-REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
-INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 
-if __name__ == "__main__":
-    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA)
+@click.command()
+@click.argument('username')
+@click.option('--refresh-data', is_flag=True, default=False,
+              help='Fetch fresh data from BGG API')
+@click.option('--include-for-trade', is_flag=True, default=False,
+              help='Include games marked For Trade in BGG')
+def main(username, refresh_data, include_for_trade):
+    data = load_data(username, refresh=refresh_data)
     collection_dict = data['collection']
     games_list = data['games']
 
@@ -24,7 +27,7 @@ if __name__ == "__main__":
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
     collection = collection_df(data=data)
-    if not INCLUDE_FOR_TRADE:
+    if not include_for_trade:
         collection = collection[collection['status.@fortrade'] != '1']
 
     # Parse recommended number of players from poll data
@@ -94,12 +97,16 @@ if __name__ == "__main__":
     env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template("collection.html")
     rendered = template.render(
-        bgg_username=BGG_USERNAME,
+        bgg_username=username,
         last_update_date=last_update_date,
         game_count=len(collection),
         sections=sections,
     )
-    with open(f'output/collection_{BGG_USERNAME}.html', 'w') as f:
+    with open(f'output/collection_{username}.html', 'w') as f:
         f.write(rendered)
 
-    collection.to_csv('output/collection_{}.csv'.format(BGG_USERNAME))
+    collection.to_csv('output/collection_{}.csv'.format(username))
+
+
+if __name__ == "__main__":
+    main()

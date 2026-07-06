@@ -7,20 +7,20 @@ Fetch a BoardGameGeek user's collection and turn it into two printable documents
 
 ## Setup
 
-Copy `.env.example` to `.env` and fill in your BGG username and API token, then install dependencies:
+Copy `.env.example` to `.env` and fill in your BGG API token, then install dependencies:
 
 ```bash
 uv sync
 ```
 
-Both scripts pull the same data from BGG and cache it to `cache/<username>.json`. Set `REFRESH_DATA=false` to render from that cache without hitting the API (no token or network needed); leave it `true` to re-pull.
+Both scripts pull the same data from BGG and cache it to `cache/<username>.json`. Pass `--refresh-data` to re-pull from the API; otherwise they render from the cache offline (no token or network needed).
 
 ## Collection report
 
 `build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV), caching the raw collection + game data to `cache/<username>.json`.
 
 ```bash
-uv run python build_collection.py
+uv run python build_collection.py <username>
 ```
 
 | Column | Description |
@@ -41,10 +41,10 @@ uv run python build_collection.py
 `build_reference.py` renders a print-ready, magazine-style color reference — one card per game with box art, publisher/designer/theme/mechanics, recommended player counts, and complexity — laid out four to a portrait Letter page. Output goes to `output/reference_<username>.html`.
 
 ```bash
-uv run python build_reference.py
+uv run python build_reference.py <username>
 ```
 
-It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `REFRESH_DATA=true` populates the cache. Print to PDF straight from the browser; backgrounds are forced on via CSS, so no print-dialog tweaks are needed.
+It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `--refresh-data` populates the cache. Print to PDF straight from the browser; backgrounds are forced on via CSS, so no print-dialog tweaks are needed.
 
 ### Card descriptions
 
@@ -73,7 +73,7 @@ short = "The Crew"
 `build_descriptions.py` rewrites each game's BGG description into a consistent, length-capped (≤450 char) blurb and archives them to `descriptions.json` (keyed by object id). It's the only script that calls an LLM (via OpenRouter), and it's run occasionally — the fast build just reads the file.
 
 ```bash
-uv run python build_descriptions.py
+uv run python build_descriptions.py <username>
 ```
 
 Set `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`) in `.env`. Entries regenerate only when the source description, prompt, or model changes.

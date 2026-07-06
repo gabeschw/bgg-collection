@@ -12,6 +12,7 @@ import os
 import asyncio
 import hashlib
 
+import click
 from pydantic_ai import Agent
 
 import common
@@ -85,8 +86,7 @@ def _is_fresh(entry, source_hash):
             and entry.get('prompt_version') == PROMPT_VERSION
             and entry.get('model') == MODEL)
 
-async def main():
-    username = os.environ["BGG_USERNAME"]
+async def _run(username):
     data = common.load_data(username, refresh=False)  # read cache; build_collection fetches
     store = common.load_descriptions()
 
@@ -114,5 +114,12 @@ async def main():
     common.save_descriptions(store)
     print(f"\nupdated {updated}, skipped {skipped} (fresh), empty {empty}; total stored {len(store)}")
 
+
+@click.command()
+@click.argument('username')
+def main(username):
+    asyncio.run(_run(username))
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

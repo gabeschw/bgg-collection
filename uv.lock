@@ -209,6 +209,7 @@ name = "bgg-collection"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "click" },
     { name = "jinja2" },
     { name = "pandas" },
     { name = "pydantic-ai" },
@@ -229,6 +230,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pydantic-ai", specifier = ">=2.5.0" },

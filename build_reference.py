@@ -1,15 +1,12 @@
 import os
 from datetime import datetime
+import click
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from common import (
     load_data, cache_path, parse_numplayers_poll, is_for_trade,
     display_name, load_overrides, load_descriptions, as_list, names, clean_text,
 )
-
-BGG_USERNAME = os.environ["BGG_USERNAME"]
-REFRESH_DATA = os.environ.get("REFRESH_DATA", "true").lower() == "true"
-INCLUDE_FOR_TRADE = os.environ.get("INCLUDE_FOR_TRADE", "false").lower() == "true"
 
 # Personal-rating thresholds for the favorite medal, highest tier first.
 FAVORITE_TIERS = [
@@ -105,14 +102,20 @@ def build_card(game, item, overrides, descriptions):
         'weight':      _round1(ratings.get('averageweight')),
     }
 
-if __name__ == "__main__":
-    data = load_data(BGG_USERNAME, refresh=REFRESH_DATA)
+@click.command()
+@click.argument('username')
+@click.option('--refresh-data', is_flag=True, default=False,
+              help='Fetch fresh data from BGG API')
+@click.option('--include-for-trade', is_flag=True, default=False,
+              help='Include games marked for trade')
+def main(username, refresh_data, include_for_trade):
+    data = load_data(username, refresh=refresh_data)
     games_list = data['games']
     items = {i['@objectid']: i for i in as_list(data['collection']['items']['item'])}
-    if not INCLUDE_FOR_TRADE:
+    if not include_for_trade:
         games_list = [g for g in games_list if not is_for_trade(items.get(g['@objectid'], {}))]
 
-    data_date = datetime.fromtimestamp(os.path.getmtime(cache_path(BGG_USERNAME))).strftime('%b %d %Y')
+    data_date = datetime.fromtimestamp(os.path.getmtime(cache_path(username))).strftime('%b %d %Y')
 
     overrides = load_overrides()
     descriptions = load_descriptions()
@@ -125,13 +128,17 @@ if __name__ == "__main__":
     )
     template = env.get_template('reference.html')
     rendered = template.render(
-        bgg_username=BGG_USERNAME,
+        bgg_username=username,
         last_update_date=data_date,
         card_count=len(cards),
         cards=cards,
     )
 
     os.makedirs('output', exist_ok=True)
-    with open(f'output/reference_{BGG_USERNAME}.html', 'w') as f:
+    with open(f'output/reference_{username}.html', 'w') as f:
         f.write(rendered)
-    print(f'Wrote output/reference_{BGG_USERNAME}.html ({len(cards)} games)')
+    print(f'Wrote output/reference_{username}.html ({len(cards)} games)')
+
+
+if __name__ == "__main__":
+    main()

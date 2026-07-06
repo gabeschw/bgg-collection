@@ -7,10 +7,15 @@ Downloads a BGG user's board game collection via the BoardGameGeek XML API, enri
 ## Commands
 
 ```bash
-uv run python build_collection.py    # collection report (fetches if needed)
-uv run python build_reference.py     # reference guide (fetches if needed)
-uv run python build_descriptions.py  # (re)generate LLM card descriptions (needs OPENROUTER_API_KEY)
-uv sync                              # install dependencies (dev group for notebooks included)
+uv run python build_collection.py <username>     # collection report
+uv run python build_reference.py <username>      # reference guide
+uv run python build_descriptions.py <username>   # (re)generate LLM card descriptions
+uv sync                                           # install dependencies
+```
+
+Both `build_collection.py` and `build_reference.py` accept `--refresh-data` and `--include-for-trade` flags:
+```bash
+uv run python build_collection.py gabeschw --refresh-data --include-for-trade
 ```
 
 No tests, lint, or CI.
@@ -21,7 +26,7 @@ No tests, lint, or CI.
 - **`build_collection.py`**: calls `load_data`, then merges/derives columns with pandas and renders the collection HTML + CSV.
 - **`build_reference.py`**: calls `load_data`, then renders one card per game. A card's description resolves as `overrides.toml` `description` → archived `descriptions.json` → cleaned/truncated BGG text. `overrides.toml` also supplies name overrides (`name` = everywhere, `short` = card-only) keyed by object id.
 - **`build_descriptions.py`**: the only script that calls an LLM (`pydantic-ai` via OpenRouter). Reads the cache, rewrites each game's description within a character ceiling using a retry loop, and archives them to `descriptions.json` (keyed by object id; regenerated only when the source text, `PROMPT_VERSION`, or model changes).
-- **Data cache**: `cache/<username>.json` holds the raw API responses `{"collection": ..., "games": [...]}`. `build_collection`/`build_reference` populate it; `REFRESH_DATA=true` (or a missing cache) triggers a fetch, otherwise they render from the cache offline. `descriptions.json` is a separate generated artifact.
+- **Data cache**: `cache/<username>.json` holds the raw API responses `{"collection": ..., "games": [...]}`. `build_collection`/`build_reference` populate it; pass `--refresh-data` (or a missing cache) triggers a fetch, otherwise they render from the cache offline. `descriptions.json` is a separate generated artifact.
 - **Templates**: `templates/collection.html` and `templates/reference.html`, both Jinja2 (`build_reference.py` renders with `autoescape`; `build_collection.py` passes pre-rendered tables via `{{ ... | safe }}`).
 - **Output**: `output/collection_{username}.html`/`.csv` and `output/reference_{username}.html` (all gitignored).
 
@@ -29,6 +34,7 @@ No tests, lint, or CI.
 
 - **Package manager**: `uv`. Lockfile is `uv.lock`. Do not use pip/conda.
 - **Python version**: 3.12 (`.python-version`).
-- **Env vars**: `BGG_USERNAME` is required; `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `REFRESH_DATA` defaults to `true`. `INCLUDE_FOR_TRADE` (default `false`) excludes for-trade games from both outputs. `OPENROUTER_API_KEY` (+ optional `OPENROUTER_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
+- **CLI options**: `username` is a required positional argument. `--refresh-data` (fetch fresh data from BGG) and `--include-for-trade` (include for-trade games) are optional flags, both defaulting to `false`.
+- **Env vars**: `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `OPENROUTER_API_KEY` (+ optional `OPENROUTER_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
 - **Batching**: Per-game API calls are batched 20 per request (`BGG_BATCH_SIZE = 20` in `common.py`), sleeping 2s between batches. 20 is BGG's enforced maximum.
 - **Notebooks**: `.ipynb` files are exploratory; the scripts are the authoritative pipeline.
