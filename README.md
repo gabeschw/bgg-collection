@@ -76,6 +76,6 @@ short = "The Crew"
 uv run python build_descriptions.py <username>
 ```
 
-Set `OPENROUTE_API_KEY` and `LLM_MODEL` in `.env`. Entries regenerate only when the source description, prompt, or model changes.
+Set `OPENROUTER_API_KEY` and `LLM_MODEL` in `.env`. Entries regenerate only when the source description, prompt, or model changes.
 
 ![Powered by BGG](bgg.png)
