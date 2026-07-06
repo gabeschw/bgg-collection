@@ -18,23 +18,27 @@ FAVORITE_TIERS = [
     ('bronze', float(os.environ.get("FAVORITE_BRONZE", 8))),
 ]
 
-def _owned_publisher(item):
-    """First publisher of the owned edition, from the version's links (blank if none)."""
-    version = item.get('version', {}).get('item') or {}
-    pubs = [link['@value'] for link in as_list(version.get('link'))
-            if isinstance(link, dict) and link.get('@type') == 'boardgamepublisher' and link.get('@value')]
-    if not pubs:
-        return ''
-    return pubs[0] + ' +' if len(pubs) > 1 else pubs[0]
-
 def _published(game, item):
-    """Original release year, adding the owned edition's year when it differs,
-    e.g. "1994 (2011 ed.)"."""
-    original = str(game.get('yearpublished') or '')
+    """Assemble the published/publisher line, grouping the owned edition's year with its
+    publisher: "1876 · Publisher (2014 ed.)". Falls back to "year (ed.)" when there is no
+    publisher, "year · publisher" when the edition year matches, or just "year".
+    """
+    year = str(game.get('yearpublished') or '')
     owned = str(item.get('yearpublished') or '')
-    if owned and owned != original:
-        return f'{original} ({owned} ed.)' if original else owned
-    return original
+    # Publisher of the owned edition (from the version's links), else the game's first.
+    version = item.get('version', {}).get('item') or {}
+    edition_pubs = [link['@value'] for link in as_list(version.get('link'))
+                    if isinstance(link, dict) and link.get('@type') == 'boardgamepublisher' and link.get('@value')]
+    if edition_pubs:
+        publisher = edition_pubs[0] + (' +' if len(edition_pubs) > 1 else '')
+    else:
+        publisher = names(game.get('boardgamepublisher'), limit=1)
+    ed = f'({owned} ed.)' if owned and owned != year else ''
+    if publisher:
+        publisher = f'{publisher} {ed}'.strip()   # edition year rides with the publisher
+    elif ed:
+        year = f'{year} {ed}'.strip()             # no publisher -> attach to the year
+    return ' · '.join(p for p in (year, publisher) if p)
 
 def _description(desc, max_len=900):
     """Fallback: cleaned BGG text, truncated at a word boundary."""
@@ -95,7 +99,6 @@ def build_card(game, item, overrides, descriptions):
         'time':        game.get('playingtime') or '',
         'description': _resolve_description(game, overrides, descriptions),
         'published':   _published(game, item),
-        'publisher':   _owned_publisher(item) or names(game.get('boardgamepublisher'), limit=1),
         'designer':    names(game.get('boardgamedesigner'), limit=2),
         'theme':       names(game.get('boardgamecategory'), limit=3),
         'mechanics':   names(game.get('boardgamemechanic'), limit=3),
