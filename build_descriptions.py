@@ -9,6 +9,7 @@ Only missing or stale entries are regenerated (see the source-hash / PROMPT_VERS
 model check below); bump PROMPT_VERSION after editing INSTRUCTIONS to force a rebuild.
 """
 import os
+import json
 import asyncio
 import hashlib
 
@@ -78,14 +79,6 @@ async def summarize(game) -> str:
                      f"{CHAR_CEILING} characters, keeping the meaning and voice.")
     return min(attempts, key=len)
 
-def _source_hash(game):
-    return hashlib.sha256(common.clean_text(game.get('description')).encode('utf-8')).hexdigest()[:16]
-
-def _is_fresh(entry, source_hash):
-    return (entry.get('source_hash') == source_hash
-            and entry.get('prompt_version') == PROMPT_VERSION
-            and entry.get('model') == MODEL)
-
 async def _run(username):
     data = common.load_data(username, refresh=False)  # read cache; build_collection fetches
     store = common.load_descriptions()
@@ -95,10 +88,12 @@ async def _run(username):
     empty = 0
     for game in data['games']:
         oid = game['@objectid']
-        source_hash = _source_hash(game)
+        source_hash = hashlib.sha256(common.clean_text(game.get('description')).encode('utf-8')).hexdigest()[:16]
         if not common.clean_text(game.get('description')):
             empty += 1
-        elif _is_fresh(store.get(oid, {}), source_hash):
+        elif (store.get(oid, {}).get('source_hash') == source_hash
+              and store.get(oid, {}).get('prompt_version') == PROMPT_VERSION
+              and store.get(oid, {}).get('model') == MODEL):
             skipped += 1
         else:
             description = await summarize(game)
@@ -111,7 +106,8 @@ async def _run(username):
             updated += 1
             print(f"[{updated}] {common.primary_name(game.get('name'))[:42]:42} {len(description):>3} chars")
 
-    common.save_descriptions(store)
+    with open(common.DESCRIPTIONS_FILE, 'w') as f:
+        json.dump(store, f, indent=2, ensure_ascii=False, sort_keys=True)
     print(f"\nupdated {updated}, skipped {skipped} (fresh), empty {empty}; total stored {len(store)}")
 
 

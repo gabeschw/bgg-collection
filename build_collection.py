@@ -2,10 +2,13 @@ import click
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 
-from common import (
-    load_data, collection_df, parse_numplayers_poll,
-    recommended_players_string, display_name, load_overrides, as_list,
-)
+import common
+
+def collection_df(data):
+    """Owned collection merged with per-game data, as a DataFrame."""
+    collection = pd.json_normalize(data['collection']['items']['item'])
+    games = pd.json_normalize(data['games'])
+    return collection.merge(games, how='left', on='@objectid', suffixes=('', '_g'))
 
 pd.set_option('future.no_silent_downcasting', True)
 
@@ -17,12 +20,12 @@ pd.set_option('future.no_silent_downcasting', True)
 @click.option('--include-for-trade', is_flag=True, default=False,
               help='Include games marked For Trade in BGG')
 def main(username, refresh_data, include_for_trade):
-    data = load_data(username, refresh=refresh_data)
+    data = common.load_data(username, refresh=refresh_data)
     collection_dict = data['collection']
     games_list = data['games']
 
-    overrides = load_overrides()
-    items_by_id = {i['@objectid']: i for i in as_list(collection_dict['items']['item'])}
+    overrides = common.load_overrides()
+    items_by_id = {i['@objectid']: i for i in common.as_list(collection_dict['items']['item'])}
     games_by_id = {g['@objectid']: g for g in games_list}
 
     last_update_date = collection_dict['items']['@pubdate'][5:16]
@@ -31,15 +34,15 @@ def main(username, refresh_data, include_for_trade):
         collection = collection[collection['status.@fortrade'] != '1']
 
     # Parse recommended number of players from poll data
-    recommended_players = collection.poll.apply(parse_numplayers_poll)
-    collection['Players'] = recommended_players.apply(recommended_players_string)
+    recommended_players = collection.poll.apply(common.parse_numplayers_poll)
+    collection['Players'] = recommended_players.apply(lambda nums: "".join(str(n) if n in nums else "_" for n in range(1, 10)))
     for np in range(1, 7):
         collection[f'np_{np}'] = recommended_players.apply(lambda nums, n=np: n in nums)
     collection['np_7+'] = recommended_players.apply(lambda nums: any(p >= 7 for p in nums))
 
     # Create columns for HTML export
     collection['Name']       = collection['@objectid'].map(
-        lambda oid: display_name(games_by_id.get(oid, {}), items_by_id.get(oid, {}), overrides))
+        lambda oid: common.display_name(games_by_id.get(oid, {}), items_by_id.get(oid, {}), overrides))
     collection['Time']       = collection['playingtime'].astype(int)
     collection['# Plays']    = collection['numplays']
     # Fixed decimals so the right-aligned columns line up on the decimal point.

@@ -71,11 +71,7 @@ def load_descriptions(path=DESCRIPTIONS_FILE):
     except FileNotFoundError:
         return {}
 
-def save_descriptions(store, path=DESCRIPTIONS_FILE):
-    with open(path, 'w') as f:
-        json.dump(store, f, indent=2, ensure_ascii=False, sort_keys=True)
-
-def _fetch(username):
+def fetch_user_data(username):
     collection = bgg_api_to_dict('collection', {
         'username': username,
         'version': 1,
@@ -109,31 +105,13 @@ def load_data(username, refresh):
     """
     path = cache_path(username)
     if refresh or not os.path.exists(path):
-        data = _fetch(username)
+        data = fetch_user_data(username)
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(data, f)
         return data
     with open(path) as f:
         return json.load(f)
-
-def collection_df(username=None, refresh=False, data=None):
-    """Owned collection merged with per-game data, as a DataFrame for analysis.
-
-    Pass `data` from load_data() to reuse it, otherwise give a `username` to load
-    from the cache. Nested fields (publisher/mechanic/version lists) are kept as
-    objects rather than the stringified form the exported CSV has.
-    """
-    import pandas as pd
-    if data is None:
-        data = load_data(username, refresh)
-    collection = pd.json_normalize(data['collection']['items']['item'])
-    games = pd.json_normalize(data['games'])
-    return collection.merge(games, how='left', on='@objectid', suffixes=('', '_g'))
-
-def is_for_trade(item):
-    """True if the collection item is flagged for trade."""
-    return (item.get('status') or {}).get('@fortrade') == '1'
 
 def as_list(field):
     """Wrap a BGG field that may be a single dict, a list, or missing into a list."""
@@ -149,10 +127,6 @@ def primary_name(field):
             return i.get('#text', '')
     return items[0].get('#text', '') if items and isinstance(items[0], dict) else ''
 
-def _collection_name(item):
-    name = item.get('name')
-    return name.get('#text') if isinstance(name, dict) else (name or '')
-
 def names(field, limit=None, sep=', ', more='+'):
     """Join the '#text' values of a possibly-nested BGG field (list/dict/None)."""
     texts = [i['#text'] for i in as_list(field) if isinstance(i, dict) and i.get('#text')]
@@ -165,20 +139,6 @@ def names(field, limit=None, sep=', ', more='+'):
 def clean_text(text):
     """Unescape HTML entities and collapse whitespace to a single line."""
     return re.sub(r'\s+', ' ', html.unescape(text or '').replace('\n', ' ')).strip()
-
-def _clean_name(name):
-    """Trim a trailing "(...)" parenthetical from a name.
-
-    Keeps the part before the parens when it has Latin letters (drops edition/
-    disambiguation notes); otherwise uses the parenthetical, which is how a
-    non-Latin primary name shows its English title,
-    e.g. "白と黒でトリテ (Trick-Taking in Black and White)".
-    """
-    m = re.match(r'^(.*?)\s*\(([^()]*)\)\s*$', name)
-    if not m:
-        return name
-    head, paren = m.group(1).strip(), m.group(2).strip()
-    return head if re.search(r'[A-Za-z]', head) else paren
 
 OVERRIDES_FILE = os.environ.get("OVERRIDES_FILE", os.path.join(_ROOT, "overrides.toml"))
 
@@ -202,7 +162,14 @@ def display_name(game, item, overrides, short=False):
         return ov['short']
     if ov.get('name'):
         return ov['name']
-    return _clean_name(_collection_name(item) or primary_name(game.get('name')))
+    name_field = item.get('name')
+    raw_name = name_field.get('#text') if isinstance(name_field, dict) else (name_field or '')
+    raw_name = raw_name or primary_name(game.get('name'))
+    m = re.match(r'^(.*?)\s*\(([^()]*)\)\s*$', raw_name)
+    if m:
+        head, paren = m.group(1).strip(), m.group(2).strip()
+        raw_name = head if re.search(r'[A-Za-z]', head) else paren
+    return raw_name
 
 def parse_numplayers_poll(poll, threshold=0.60):
     """Return the player counts the BGG community rates Best/Recommended.
@@ -233,10 +200,4 @@ def parse_numplayers_poll(poll, threshold=0.60):
             recommended.append(num_players)
     return recommended
 
-def recommended_players_string(nums):
-    """Render recommended counts as a fixed 9-slot reference string.
 
-    Each slot 1-9 shows its digit when recommended, otherwise an underscore,
-    e.g. [2, 3, 6] -> "_23__6___".
-    """
-    return "".join(str(n) if n in nums else "_" for n in range(1, 10))

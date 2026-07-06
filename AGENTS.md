@@ -22,7 +22,7 @@ No tests, lint, or CI.
 
 ## Architecture
 
-- **`common.py`**: shared data + parsing layer. `load_data(username, refresh)` fetches the collection + games from BGG and caches them, or reads the cache; also holds recommended-players poll parsing, name resolution (`display_name`, `names`, `clean_text`, …), `collection_df()` (merged DataFrame for notebook analysis), and the `descriptions.json` reader/writer. The API token is read lazily, so cache-only reads need no credentials.
+- **`common.py`**: shared data + parsing layer. `load_data(username, refresh)` fetches the collection + games from BGG and caches them, or reads the cache; also holds recommended-players poll parsing, name resolution (`display_name`, `names`, `clean_text`, …), and the `descriptions.json` reader/writer. The API token is read lazily, so cache-only reads need no credentials.
 - **`build_collection.py`**: calls `load_data`, then merges/derives columns with pandas and renders the collection HTML + CSV.
 - **`build_reference.py`**: calls `load_data`, then renders one card per game. A card's description resolves as `overrides.toml` `description` → archived `descriptions.json` → cleaned/truncated BGG text. `overrides.toml` also supplies name overrides (`name` = everywhere, `short` = card-only) keyed by object id.
 - **`build_descriptions.py`**: the only script that calls an LLM (`pydantic-ai` via OpenRouter). Reads the cache, rewrites each game's description within a character ceiling using a retry loop, and archives them to `descriptions.json` (keyed by object id; regenerated only when the source text, `PROMPT_VERSION`, or model changes).
