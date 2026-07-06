@@ -44,15 +44,38 @@ uv run python build_collection.py
 uv run python build_reference.py
 ```
 
-It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `REFRESH_DATA=true` populates the cache. When printing to PDF, enable "Background graphics" so the colored elements render.
+It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `REFRESH_DATA=true` populates the cache. Print to PDF straight from the browser; backgrounds are forced on via CSS, so no print-dialog tweaks are needed.
 
-### Name overrides
+### Card descriptions
 
-Game names too long to fit on a card line can be shortened in `overrides.toml`, keyed by BGG object id. Trailing `(...)` parentheticals are trimmed automatically; colon subtitles need a manual choice. Each run prints the ids of names that may not fit, ready to paste in:
+Card descriptions come from `descriptions.json`, generated separately by an LLM (see below); if a game has no entry, the cleaned/truncated BGG description is used as a fallback.
+
+### Overrides
+
+`overrides.toml` holds per-game display overrides keyed by BGG object id:
+
+- `name` — used everywhere (collection report and card); for fixing a name, e.g. restoring the canonical title over a localized edition.
+- `short` — used only on the reference card, where the name must fit one line; the collection table keeps the full name.
+- `description` — a hand-written description that wins over the generated one.
+
+Trailing `(...)` parentheticals in names are trimmed automatically.
 
 ```toml
-[overrides."130176"]  # Tales & Games: The Hare & the Tortoise
-name = "The Hare & the Tortoise"
+[overrides."42"]      # owned edition: Euphrat & Tigris
+name = "Tigris & Euphrates"
+
+[overrides."284083"]  # The Crew: The Quest for Planet Nine
+short = "The Crew"
 ```
+
+## Descriptions (optional, LLM)
+
+`build_descriptions.py` rewrites each game's BGG description into a consistent, length-capped (≤450 char) blurb and archives them to `descriptions.json` (keyed by object id). It's the only script that calls an LLM (via OpenRouter), and it's run occasionally — the fast build just reads the file.
+
+```bash
+uv run python build_descriptions.py
+```
+
+Set `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`) in `.env`. Entries regenerate only when the source description, prompt, or model changes.
 
 ![Powered by BGG](bgg.png)
