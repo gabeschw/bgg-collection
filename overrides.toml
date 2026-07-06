@@ -21,6 +21,9 @@ name = "Fast Sloths"
 [overrides."354"]     # owned edition: Sticheln
 name = "Stick 'Em"
 
+[overrides."811"]     # owned edition: Deluxe Rummikub
+name = "Rummikub"
+
 # --- Card-only shortenings (table keeps the full name) ---
 
 [overrides."130176"]  # Tales & Games: The Hare & the Tortoise
