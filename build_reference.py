@@ -6,6 +6,8 @@ import click
 import requests
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image
+import qrcode
+import qrcode.image.svg
 from tqdm import tqdm
 
 import common
@@ -14,14 +16,14 @@ IMAGE_MAX_DIM = 600
 
 def _resize_image(url, output_path):
     """Download an image, resize to IMAGE_MAX_DIM, and save as JPEG."""
-    try:
+    try: 
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         img = Image.open(BytesIO(resp.content))
         if max(img.size) > IMAGE_MAX_DIM:
             ratio = IMAGE_MAX_DIM / max(img.size)
             new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
-            img = img.resize(new_size, Image.LANCZOS)
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
         if img.mode in ('RGBA', 'P', 'PA'):
             if img.mode == 'P':
                 img = img.convert('RGBA')
@@ -30,6 +32,12 @@ def _resize_image(url, output_path):
         return True
     except Exception:
         return False
+    
+def _qrcode(game):
+    return qrcode.make(
+        data=f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
+        image_factory=qrcode.image.svg.SvgPathImage
+    ).to_string().decode().replace('fill="#000000"', 'fill="currentColor"')
 
 # Personal-rating thresholds for the favorite medal, highest tier first.
 FAVORITE_TIERS = [
@@ -106,6 +114,7 @@ def build_card(game, item, overrides, descriptions):
         'id':          game['@objectid'],
         'name':        common.display_name(game, item, overrides, short=True),
         'url':         f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
+        'qrcode':      _qrcode(game),
         'medal':       _medal(item),
         'image':       item.get('image') or game.get('image') or game.get('thumbnail') or '',
         'players':     _players(game),
