@@ -87,15 +87,15 @@ def main(username, refresh_data, include_for_trade):
         })
 
     sections.append({
-        'title': 'Alphabetic List',
-        'page_break': True,
-        'table': collection[cols].fillna(0).sort_values('Name').to_html(index=False),
-    })
-
-    sections.append({
         'title': 'By Designer',
         'page_break': True,
         'table': collection[cols].fillna(0).sort_values(['Designer', 'Year', 'Name']).to_html(index=False),
+    })
+
+    sections.append({
+        'title': 'Alphabetic List',
+        'page_break': True,
+        'table': collection[cols].fillna(0).sort_values('Name').to_html(index=False),
     })
 
     # Render and export HTML
