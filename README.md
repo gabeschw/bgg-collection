@@ -48,6 +48,16 @@ It uses the same `cache/<username>.json`, so it can run before or after the coll
 
 Pass `--local-images` to download and shrink images to 600px JPEGs before rendering, which keeps the PDF size manageable (helpful when planning to print to PDF).
 
+### PDF export
+
+`print_pdf.sh` renders the HTML output files via headless Chrome and merges them with `pdfunite` into a single combined PDF (`output/<username>.pdf`), ordered as cover → reference cards → collection report:
+
+```bash
+./print_pdf.sh <username>
+```
+
+You can also specify individual sections: `./print_pdf.sh <username> reference collection`.
+
 ### Cover page
 
 `build_cover.py` renders a full-bleed box-art mosaic — one tile per game, every row kept full (the sorted tail is dropped so the grid never has a short row) — with a frosted title panel, as a decorative cover for the reference guide. It reuses the `output/<username>_images/` cache from `--local-images`.

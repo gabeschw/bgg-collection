@@ -11,6 +11,7 @@ uv run python build_collection.py <username>     # collection report
 uv run python build_reference.py <username>      # reference guide
 uv run python build_cover.py <username>          # box-art mosaic cover page
 uv run python build_descriptions.py <username>   # (re)generate LLM card descriptions
+./print_pdf.sh <username>                        # export combined PDF (cover + reference + collection)
 uv sync                                           # install dependencies
 ```
 
