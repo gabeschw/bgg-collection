@@ -1,9 +1,11 @@
 # bgg-collection
 
-Fetch a BoardGameGeek user's collection and turn it into two printable documents:
+Fetch a BoardGameGeek user's collection and turn it into printable documents:
 
-- **Collection report** — a compact, sortable table of the whole collection (`build_collection.py`).
-- **Reference guide** — a magazine-style card per game (`build_reference.py`).
+- **Cover page** — full-bleed box-art mosaic title page (`build_cover.py`).
+- **Reference guide** — magazine-style card per game with art, stats, and blurbs (`build_reference.py`).
+- **Collection report** — compact tables grouped by player counts, designer, and title (`build_collection.py`).
+- **Combined PDF** — merge cover, reference, and collection into one PDF (`print_pdf.sh`).
 
 ## Setup
 
@@ -13,14 +15,26 @@ Copy `.env.example` to `.env` and fill in your BGG API token, then install depen
 uv sync
 ```
 
-Both scripts pull the same data from BGG and cache it to `cache/<username>.json`. Pass `--refresh-data` to re-pull from the API; otherwise they render from the cache offline (no token or network needed).
+Scripts pull data from BGG and cache it to `cache/<username>.json`. Pass `--refresh-data` to re-fetch from the API; otherwise builds run offline from the cache (no token or network needed).
+
+## Quick Start
+
+```bash
+# 1. Fetch collection & build HTML documents
+uv run python build_collection.py <username> --refresh-data
+uv run python build_reference.py <username> --local-images
+uv run python build_cover.py <username>
+
+# 2. Export combined PDF (cover -> reference -> collection)
+./print_pdf.sh <username>
+```
 
 ## Collection report
 
-`build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV), caching the raw collection + game data to `cache/<username>.json`.
+`build_collection.py` downloads the collection from BGG and writes `output/collection_<username>.html` (plus a CSV), with tables grouped by recommended player counts (1 to 7+), designer, and an alphabetical list.
 
 ```bash
-uv run python build_collection.py <username>
+uv run python build_collection.py <username> [--refresh-data] [--include-for-trade]
 ```
 
 | Column | Description |
@@ -38,35 +52,33 @@ uv run python build_collection.py <username>
 
 ## Reference guide
 
-`build_reference.py` renders a print-ready, magazine-style color reference — one card per game with box art, publisher/designer/theme/mechanics, recommended player counts, and complexity — laid out four to a portrait Letter page. Output goes to `output/reference_<username>.html`.
+`build_reference.py` renders a magazine-style color reference — one card per game with box art, publisher, designer, theme, mechanics, recommended player counts, complexity, QR code to BGG, and summary blurb — laid out four per portrait A4 page. Output goes to `output/reference_<username>.html`.
 
 ```bash
-uv run python build_reference.py <username>
+uv run python build_reference.py <username> [--local-images] [--refresh-data] [--include-for-trade]
 ```
 
-It uses the same `cache/<username>.json`, so it can run before or after the collection report — whichever runs first with `--refresh-data` populates the cache. Print to PDF straight from the browser; backgrounds are forced on via CSS, so no print-dialog tweaks are needed.
+Pass `--local-images` to download and shrink images to 600px JPEGs in `output/<username>_images/`, keeping the output PDF size manageable.
 
-Pass `--local-images` to download and shrink images to 600px JPEGs before rendering, which keeps the PDF size manageable (helpful when planning to print to PDF).
+### Cover page
+
+`build_cover.py` renders a full-bleed box-art mosaic — one tile per game, keeping every row full — with a frosted title panel as a decorative cover for the reference guide. It reuses the local image cache from `--local-images`.
+
+```bash
+uv run python build_cover.py <username> [--cols N] [--rows N] [--title "..."] [--sorting alpha|rating|random] [--seed N] [--include-for-trade]
+```
+
+Grid dimensions auto-size to A4's portrait aspect with square-ish cells (e.g. 320 games → 16×20); pass `--cols` or `--rows` to pin one axis. Output goes to `output/cover_<username>.html`.
 
 ### PDF export
 
-`print_pdf.sh` renders the HTML output files via headless Chrome and merges them with `pdfunite` into a single combined PDF (`output/<username>.pdf`), ordered as cover → reference cards → collection report:
+`print_pdf.sh` renders the HTML files via headless Chrome and merges them with `pdfunite` into a single combined PDF (`output/<username>.pdf`), ordered as cover → reference cards → collection report:
 
 ```bash
 ./print_pdf.sh <username>
 ```
 
-You can also specify individual sections: `./print_pdf.sh <username> reference collection`.
-
-### Cover page
-
-`build_cover.py` renders a full-bleed box-art mosaic — one tile per game, every row kept full (the sorted tail is dropped so the grid never has a short row) — with a frosted title panel, as a decorative cover for the reference guide. It reuses the `output/<username>_images/` cache from `--local-images`.
-
-```bash
-uv run python build_cover.py <username> [--cols N] [--rows N] [--title "..."] [--sorting alpha|rating|random]
-```
-
-Grid dimensions auto-size to A4's portrait aspect with square-ish cells (e.g. 320 games → 16×20); pass `--cols` or `--rows` to pin one axis. Output goes to `output/cover_<username>.html`.
+You can also specify individual sections: `./print_pdf.sh <username> cover reference`.
 
 ### Card descriptions
 
