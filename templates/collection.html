@@ -71,6 +71,35 @@
     table tbody tr:nth-of-type(odd) {
         background-color: #fdfdfc;
     }
+    @media print {
+        @page { size: A4 portrait; margin: 10mm; }
+        body { margin: 0; }
+        h2 { break-after: avoid; page-break-after: avoid; margin-top: 15px; }
+        table {
+            width: 100%;
+            border-radius: 0;
+            overflow: visible;
+            border-collapse: collapse;
+            border: 1px solid #cfcfca;
+            margin: 4px 0 14px;
+            background: transparent;
+        }
+        table thead tr {
+            background-color: #3f3f3f;
+            color: #ffffff;
+        }
+        table tbody tr:nth-of-type(odd) {
+            background-color: #ffffff;
+        }
+        table tbody tr:nth-of-type(even) {
+            background-color: #f2f2f0;
+        }
+        table th, table td {
+            padding: 2px 4px;
+        }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+    }
     </style>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
