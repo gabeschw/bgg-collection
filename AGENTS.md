@@ -9,11 +9,12 @@ Downloads a BGG user's board game collection via the BoardGameGeek XML API, enri
 ```bash
 uv run python build_collection.py <username>     # collection report
 uv run python build_reference.py <username>      # reference guide
+uv run python build_cover.py <username>          # box-art mosaic cover page
 uv run python build_descriptions.py <username>   # (re)generate LLM card descriptions
 uv sync                                           # install dependencies
 ```
 
-Both scripts accept `--refresh-data` and `--include-for-trade`. `build_reference.py` also accepts `--local-images` to download and resize images for a smaller PDF:
+`build_collection.py` and `build_reference.py` accept `--refresh-data` and `--include-for-trade`. `build_reference.py` also accepts `--local-images` to download and resize images for a smaller PDF; `build_cover.py` accepts `--include-for-trade` (renders from the cache only) plus `--cols`/`--rows`/`--title`/`--sorting`:
 ```bash
 uv run python build_collection.py gabeschw --refresh-data --include-for-trade
 uv run python build_reference.py gabeschw --local-images
@@ -23,13 +24,14 @@ No tests, lint, or CI.
 
 ## Architecture
 
-- **`common.py`**: shared data + parsing layer. `load_data(username, refresh)` fetches the collection + games from BGG and caches them, or reads the cache; also holds recommended-players poll parsing, name resolution (`display_name`, `names`, `clean_text`, …), and the `_descriptions.json` reader/writer. The API token is read lazily, so cache-only reads need no credentials.
+- **`common.py`**: shared data + parsing layer. `load_data(username, refresh)` fetches the collection + games from BGG and caches them, or reads the cache; also holds recommended-players poll parsing, name resolution (`display_name`, `names`, `clean_text`, …), the `_descriptions.json` reader/writer, and the reference-card assembly + image cache shared by `build_reference`/`build_cover` (`build_card`, `prepare_local_images`, `qrcode`). The API token is read lazily, so cache-only reads need no credentials.
 - **`build_collection.py`**: calls `load_data`, then merges/derives columns with pandas and renders the collection HTML + CSV.
-- **`build_reference.py`**: calls `load_data`, then renders one card per game. A card's description resolves as `overrides.toml` `description` → archived `_descriptions.json` → cleaned/truncated BGG text. `overrides.toml` also supplies name overrides (`name` = everywhere, `short` = card-only) keyed by object id. With `--local-images`, it downloads + resizes BGG images to 600px JPEGs stored in `output/<username>_images/` for smaller PDF exports.
+- **`build_reference.py`**: calls `load_data`, then renders one card per game via `common.build_card`. A card's description resolves as `overrides.toml` `description` → archived `_descriptions.json` → cleaned/truncated BGG text. `overrides.toml` also supplies name overrides (`name` = everywhere, `short` = card-only) keyed by object id. With `--local-images`, it downloads + resizes BGG images to 600px JPEGs stored in `output/<username>_images/` for smaller PDF exports.
+- **`build_cover.py`**: renders a full-bleed box-art mosaic cover for the reference guide. Reads the cache, builds cards via `common.build_card`, lists the local image cache, then picks a grid whose rows are always full (the sorted tail is dropped when the product of rows × columns exceeds the tile count), and renders `templates/cover.html`. Options: `--cols`/`--rows` (pin one axis), `--title`, `--sorting alpha|rating|random`, `--seed`, `--include-for-trade`.
 - **`build_descriptions.py`**: the only script that calls an LLM (`pydantic-ai` via OpenRouter). Reads the cache, rewrites each game's description within a character ceiling using a retry loop, and archives them to `_descriptions.json` (keyed by object id; regenerated only when the source text, `PROMPT_VERSION`, or model changes).
 - **Data cache**: `cache/<username>.json` holds the raw API responses `{"collection": ..., "games": [...]}`. `build_collection`/`build_reference` populate it; pass `--refresh-data` (or a missing cache) triggers a fetch, otherwise they render from the cache offline. `_descriptions.json` is a separate generated artifact.
-- **Templates**: `templates/collection.html` and `templates/reference.html`, both Jinja2 (`build_reference.py` renders with `autoescape`; `build_collection.py` passes pre-rendered tables via `{{ ... | safe }}`).
-- **Output**: `output/collection_{username}.html`/`.csv` and `output/reference_{username}.html` (all gitignored).
+- **Templates**: `templates/collection.html`, `templates/reference.html`, and `templates/cover.html`, all Jinja2 (`build_reference.py` and `build_cover.py` render with `autoescape`; `build_collection.py` passes pre-rendered tables via `{{ ... | safe }}`).
+- **Output**: `output/collection_{username}.html`/`.csv`, `output/reference_{username}.html`, and `output/cover_{username}.html` (all gitignored).
 
 ## Gotchas
 

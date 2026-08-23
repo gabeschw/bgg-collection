@@ -48,6 +48,16 @@ It uses the same `cache/<username>.json`, so it can run before or after the coll
 
 Pass `--local-images` to download and shrink images to 600px JPEGs before rendering, which keeps the PDF size manageable (helpful when planning to print to PDF).
 
+### Cover page
+
+`build_cover.py` renders a full-bleed box-art mosaic — one tile per game, every row kept full (the sorted tail is dropped so the grid never has a short row) — with a frosted title panel, as a decorative cover for the reference guide. It reuses the `output/<username>_images/` cache from `--local-images`.
+
+```bash
+uv run python build_cover.py <username> [--cols N] [--rows N] [--title "..."] [--sorting alpha|rating|random]
+```
+
+Grid dimensions auto-size to A4's portrait aspect with square-ish cells (e.g. 320 games → 16×20); pass `--cols` or `--rows` to pin one axis. Output goes to `output/cover_<username>.html`.
+
 ### Card descriptions
 
 Card descriptions come from `_descriptions.json`, generated separately by an LLM (see below); if a game has no entry, the cleaned/truncated BGG description is used as a fallback.

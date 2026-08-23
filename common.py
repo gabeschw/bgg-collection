@@ -1,13 +1,18 @@
 """Shared data layer for BGG collection scripts: API fetch, caching, name resolution,
-poll parsing, and file I/O for overrides and LLM descriptions."""
-import os
-import re
+poll parsing, file I/O for overrides and LLM descriptions, and reference-card assembly."""
 import html
 import json
+import os
+import re
 import time
 import tomllib
+from io import BytesIO
+
+import qrcode as _qrcode_lib
+import qrcode.image.svg
 import requests
 import xmltodict
+from PIL import Image
 from tqdm import tqdm
 
 # Anchor paths to this file's directory so they resolve the same from the
@@ -24,7 +29,7 @@ def bgg_api_to_dict(endpoint, params, retries=5):
     """Fetch from the BGG XML API 2, retrying on 202 (accepted, not yet ready)."""
     for _ in range(retries):
         r = requests.get(
-            "https://boardgamegeek.com/xmlapi2/{}".format(endpoint),
+            f"https://boardgamegeek.com/xmlapi2/{endpoint}",
             params=params,
             headers=_headers(),
         )
@@ -42,7 +47,7 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
     params = params or {}
     for _ in range(retries):
         r = requests.get(
-            "https://boardgamegeek.com/xmlapi/boardgame/{}".format(game_ids),
+            f"https://boardgamegeek.com/xmlapi/boardgame/{game_ids}",
             params=params,
             headers=_headers(),
         )
@@ -56,6 +61,11 @@ def bgg_game_to_dict(game_ids, params=None, retries=5):
 def cache_path(username):
     """Path to the per-user BGG cache file."""
     return os.path.join(CACHE_DIR, f"{username}.json")
+
+def cache_date(username, fmt='%d %b %Y'):
+    """Formatted mtime of a user's cache file (build date for headers/covers)."""
+    from datetime import datetime
+    return datetime.fromtimestamp(os.path.getmtime(cache_path(username))).strftime(fmt)
 
 DESCRIPTIONS_FILE = os.path.join(CACHE_DIR, "_descriptions.json")
 
@@ -196,5 +206,140 @@ def parse_numplayers_poll(poll, threshold=0.60):
         if total_votes > 0 and good_votes / total_votes >= threshold:
             recommended.append(num_players)
     return recommended
+
+IMAGE_MAX_DIM = 600
+
+def resize_image(url, output_path):
+    """Download an image, resize to IMAGE_MAX_DIM, and save as JPEG."""
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content))
+        if max(img.size) > IMAGE_MAX_DIM:
+            ratio = IMAGE_MAX_DIM / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        if img.mode in ('RGBA', 'P', 'PA'):
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            img = img.convert('RGB')
+        img.save(output_path, 'JPEG', quality=85)
+        return True
+    except Exception:
+        return False
+
+
+def qrcode(game):
+    return _qrcode_lib.make(
+        data=f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
+        image_factory=_qrcode_lib.image.svg.SvgPathImage
+    ).to_string().decode().replace('fill="#000000"', 'fill="currentColor"')
+
+# Personal-rating thresholds for the favorite medal, highest tier first.
+FAVORITE_TIERS = [
+    ('gold',   float(os.environ.get("FAVORITE_GOLD", 10))),
+    ('silver', float(os.environ.get("FAVORITE_SILVER", 9))),
+    ('bronze', float(os.environ.get("FAVORITE_BRONZE", 8))),
+]
+
+def _published(game, item):
+    """Assemble the published/publisher line, grouping the owned edition's year with its
+    publisher: "1876 · Publisher (2014 ed.)". Falls back to "year (ed.)" when there is no
+    publisher, "year · publisher" when the edition year matches, or just "year".
+    """
+    year = str(game.get('yearpublished') or '')
+    owned = str(item.get('yearpublished') or '')
+    # Publisher of the owned edition (from the version's links), else the game's first.
+    version = item.get('version', {}).get('item') or {}
+    edition_pubs = [link['@value'] for link in as_list(version.get('link'))
+                    if isinstance(link, dict) and link.get('@type') == 'boardgamepublisher' and link.get('@value')]
+    if edition_pubs:
+        publisher = edition_pubs[0] + (' +' if len(edition_pubs) > 1 else '')
+    else:
+        publisher = names(game.get('boardgamepublisher'), limit=1)
+    ed = f'({owned} ed.)' if owned and owned != year else ''
+    if publisher:
+        publisher = f'{publisher} {ed}'.strip()   # edition year rides with the publisher
+    elif ed:
+        year = f'{year} {ed}'.strip()             # no publisher -> attach to the year
+    return ' · '.join(p for p in (year, publisher) if p)
+
+def _resolve_descriptions(game, overrides, descriptions):
+    """Precedence: manual override -> archived LLM description -> cleaned BGG text."""
+    manual = overrides.get(game['@objectid'], {}).get('description')
+    if manual:
+        return clean_text(manual)
+    generated = descriptions.get(game['@objectid'], {}).get('description')
+    if generated:
+        return generated
+    text = clean_text(game.get('description'))
+    if len(text) > 900:
+        text = text[:900].rsplit(' ', 1)[0].rstrip(',.;:') + '…'
+    return text
+
+def _players(game):
+    """Format the player range as 'lo–hi', 'lo', or 'hi'."""
+    lo, hi = game.get('minplayers'), game.get('maxplayers')
+    if not lo or lo == '0':
+        return hi or ''
+    return lo if lo == hi else f'{lo}–{hi}'
+
+def _round1(value):
+    try:
+        return f'{float(value):.1f}'
+    except (TypeError, ValueError):
+        return ''
+
+def _medal(item):
+    """Favorite tier ('gold'/'silver'/'bronze') from the personal rating, else ''."""
+    try:
+        rating = float(item.get('stats', {}).get('rating', {}).get('@value'))
+    except (TypeError, ValueError):
+        return ''  # unrated ('N/A' or missing)
+    for tier, threshold in FAVORITE_TIERS:
+        if rating >= threshold:
+            return tier
+    return ''
+
+def build_card(game, item, overrides, descriptions):
+    """Build the card dict for a single game from the collection item and BGG data."""
+    # Identity fields (name, image, year, publisher) reflect the owned edition
+    # via the collection item; the rest comes from the game's canonical data.
+    ratings = game.get('statistics', {}).get('ratings', {})
+    return {
+        'id':          game['@objectid'],
+        'name':        display_name(game, item, overrides, short=True),
+        'url':         f"https://boardgamegeek.com/boardgame/{game['@objectid']}",
+        'qrcode':      qrcode(game),
+        'medal':       _medal(item),
+        'image':       item.get('image') or game.get('image') or game.get('thumbnail') or '',
+        'players':     _players(game),
+        'rec_players': ', '.join(str(n) for n in parse_numplayers_poll(game.get('poll'))),
+        'time':        game.get('playingtime') or '',
+        'description': _resolve_descriptions(game, overrides, descriptions),
+        'published':   _published(game, item),
+        'designer':    names(game.get('boardgamedesigner'), limit=2),
+        'theme':       names(game.get('boardgamecategory'), limit=3),
+        'mechanics':   names(game.get('boardgamemechanic'), limit=3),
+        'weight':      _round1(ratings.get('averageweight')),
+    }
+
+def prepare_local_images(games, items, username):
+    """Download + resize each game's cover into output/<username>_images/ (skipping ones
+    already on disk) and return {objectid: relative_path} for cards to use."""
+    image_map = {}
+    image_dir = os.path.join(_ROOT, 'output', f'{username}_images')
+    os.makedirs(image_dir, exist_ok=True)
+    for g in tqdm(games, desc='Images'):
+        gid = g['@objectid']
+        item = items.get(gid, {})
+        image_url = item.get('image') or g.get('image') or g.get('thumbnail') or ''
+        if image_url:
+            local_path = os.path.join(image_dir, f'{gid}.jpg')
+            if not os.path.exists(local_path):
+                resize_image(image_url, local_path)
+            if os.path.exists(local_path):
+                image_map[gid] = f'{username}_images/{gid}.jpg'
+    return image_map
 
 
