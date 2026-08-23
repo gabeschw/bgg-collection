@@ -30,16 +30,17 @@ No tests, lint, or CI.
 - **`build_reference.py`**: calls `load_data`, then renders one card per game via `common.build_card`. A card's description resolves as `overrides.toml` `description` → archived `_descriptions.json` → cleaned/truncated BGG text. `overrides.toml` also supplies name overrides (`name` = everywhere, `short` = card-only) keyed by object id. With `--local-images`, it downloads + resizes BGG images to 600px JPEGs stored in `output/<username>_images/` for smaller PDF exports.
 - **`build_cover.py`**: renders a full-bleed box-art mosaic cover for the reference guide. Reads the cache, builds cards via `common.build_card`, lists the local image cache, then picks a grid whose rows are always full (the sorted tail is dropped when the product of rows × columns exceeds the tile count), and renders `templates/cover.html`. Options: `--cols`/`--rows` (pin one axis), `--title`, `--sorting alpha|rating|random`, `--seed`, `--include-for-trade`.
 - **`build_descriptions.py`**: the only script that calls an LLM (`pydantic-ai` via OpenRouter). Reads the cache, rewrites each game's description within a character ceiling using a retry loop, and archives them to `_descriptions.json` (keyed by object id; regenerated only when the source text, `PROMPT_VERSION`, or model changes).
+- **`print_pdf.sh`**: renders the HTML output files via headless Chrome and merges them with `pdfunite` into `output/<username>.pdf` (cover → reference → collection).
 - **Data cache**: `cache/<username>.json` holds the raw API responses `{"collection": ..., "games": [...]}`. `build_collection`/`build_reference` populate it; pass `--refresh-data` (or a missing cache) triggers a fetch, otherwise they render from the cache offline. `_descriptions.json` is a separate generated artifact.
 - **Templates**: `templates/collection.html`, `templates/reference.html`, and `templates/cover.html`, all Jinja2 (`build_reference.py` and `build_cover.py` render with `autoescape`; `build_collection.py` passes pre-rendered tables via `{{ ... | safe }}`).
-- **Output**: `output/collection_{username}.html`/`.csv`, `output/reference_{username}.html`, and `output/cover_{username}.html` (all gitignored).
+- **Output**: `output/collection_{username}.html`/`.csv`, `output/reference_{username}.html`, `output/cover_{username}.html`, and `output/{username}.pdf` (all gitignored).
 
 ## Gotchas
 
 - **Package manager**: `uv`. Lockfile is `uv.lock`. Do not use pip/conda.
 - **Python version**: 3.12 (`.python-version`).
 - **CLI options**: `username` is a required positional argument. `--refresh-data` (fetch fresh data from BGG) and `--include-for-trade` (include for-trade games) are optional flags, both defaulting to `false`.
-- **Env vars**: `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `LLM_API_KEY` (+ optional `LLM_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
+- **Env vars**: `BGG_API_TOKEN` is required only when fetching (cache reads don't need it). `OPENROUTER_API_KEY` (+ optional `LLM_MODEL`) is needed only by `build_descriptions.py`. Copy `.env.example` to `.env` — `uv run` loads `.env` automatically (a notebook must load it itself).
 - **Batching**: Per-game API calls are batched 20 per request (`BGG_BATCH_SIZE = 20` in `common.py`), sleeping 2s between batches. 20 is BGG's enforced maximum.
 - **Image cache**: `--local-images` stores resized JPEGs in `output/<username>_images/`. Only downloads missing images, so subsequent builds are fast. Delete the directory to force re-download.
 - **Notebooks**: `.ipynb` files are exploratory; the scripts are the authoritative pipeline.
